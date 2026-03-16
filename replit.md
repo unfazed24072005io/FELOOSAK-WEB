@@ -21,7 +21,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   └── feloosak/           # Feloosak finance app (React+Vite)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -49,6 +50,31 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
 
 ## Packages
+
+### `artifacts/feloosak` (`@workspace/feloosak`)
+
+Feloosak (فلوسك) — AI-powered finance super-app for Egypt & UAE. React+Vite SPA with Tailwind CSS.
+
+**Key Features:**
+- Login screen with split-panel layout (dark branding panel + sign-in form)
+- Region selector (Egypt / UAE) with different tax rules, currencies, compliance
+- Dashboard with Recharts (AreaChart monthly trend, PieChart top categories), stat cards, AI insight card, recent transactions
+- Cash In/Out page with tabs (All, Cash In, Cash Out, Customers), add entry modal, delete on hover, customer trust ratings
+- Invoices page with advanced invoice builder modal (multi-line items, qty/price/discount, VAT calc, subtotal/total, Submit ETA/Send)
+- AI Insights page with variance analysis table and AI chat (keyword-based responses about VAT/tax/profit)
+- Compliance page with VAT summary, corporate tax calculator, UAE 2026 amendments, tax calendar
+- Settings page with region switcher, compliance badges, Egypt vs UAE comparison table, logout
+
+**Design:**
+- Design tokens: bg=#F6F5F0, accent=#C8A630, ok=#22A06B, bad=#E34935, warn=#E5890A, info=#2680EB
+- Font: DM Sans / system-ui fallback
+- Collapsible sidebar navigation with 6 pages
+- Region data: Egypt (VAT 14%, EGP, ETA, CT 22.5%) and UAE (VAT 5%, AED, FTA, CT 9% above AED 375K)
+
+**Dependencies:** React 19, Vite, Tailwind CSS 4, Recharts, wouter
+
+- Entry: `src/main.tsx` → `src/App.tsx` (single-file app with all components)
+- `pnpm --filter @workspace/feloosak run dev` — run the dev server
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 

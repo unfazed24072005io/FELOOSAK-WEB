@@ -1,6 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 
+// ════════════════════════════════════════════════════════════════
+// FELOOSAK v3 — Full Preview
+// ════════════════════════════════════════════════════════════════
+
 const TK = {
   bg:"#F6F5F0",card:"#FFFFFF",muted:"#FAF9F7",border:"#E8E6E1",borderL:"#F0EDE8",
   text:"#1A1A1A",textS:"#6B6560",textM:"#9C9590",
@@ -13,17 +17,7 @@ const TK = {
 };
 const CC=["#C8A630","#22A06B","#2680EB","#E34935","#8B5CF6","#E5890A"];
 
-type RegionKey = "EG" | "AE";
-interface CalEvent { e: string; d: string; r: boolean }
-interface V26Item { t: string; d: string }
-interface RegionInfo {
-  id: string; n: string; ar: string; fl: string; cur: string;
-  vr: number; vl: string; auth: string; ct: number; ctT: number;
-  eM: boolean; fmt: string; sig: string; arch: number; pc: string; rt: boolean;
-  pays: string[]; cal: CalEvent[]; v26: V26Item[] | null;
-}
-
-const RG: Record<RegionKey, RegionInfo> = {
+const RG={
   EG:{id:"EG",n:"Egypt",ar:"مصر",fl:"🇪🇬",cur:"EGP",vr:0.14,vl:"VAT 14%",auth:"ETA",ct:0.225,ctT:0,eM:true,fmt:"XML/JSON",sig:"HSM/USB Token",arch:7,pc:"GS1 GPC",rt:true,
     pays:["Fawry","Vodafone Cash","InstaPay","Paymob","Meeza"],
     cal:[{e:"Monthly VAT Return",d:"2 months after period",r:true},{e:"Annual Corporate Tax",d:"April 30",r:true},{e:"E-Invoice Wave 9-10",d:"2026",r:false},{e:"Withholding Tax",d:"Quarterly",r:true}],
@@ -34,7 +28,7 @@ const RG: Record<RegionKey, RegionInfo> = {
     v26:[{t:"Reverse Charge Simplified",d:"No self-invoices. Retain supplier docs."},{t:"5-Year Refund Deadline",d:"Unclaimed VAT expires after 5 years."},{t:"Anti-Evasion",d:"FTA can deny input VAT linked to evasion."},{t:"Supplier Due Diligence",d:"Verify suppliers before claiming input VAT."}]},
 };
 
-const LL: Record<string, string> = {
+const LL={
   dashboard:"Dashboard",cash:"Cash In / Out",invoices:"Invoices",ai:"AI Insights",
   compliance:"Compliance",settings:"Settings",welcome:"Welcome back",
   balance:"Total Balance",income:"Income",expense:"Expenses",receivable:"Receivable",
@@ -63,9 +57,7 @@ const LL: Record<string, string> = {
 
 const CATS=["sales","services","rent","inventory","salaries","utilities","transport","food","maintenance","other"];
 
-interface TxItem { id: number; ty: string; am: number; cat: string; no: string; dt: string }
-
-const TX: TxItem[] = [
+const TX=[
   {id:1,ty:"in",am:12500,cat:"sales",no:"Shop daily sales",dt:"Mar 16"},
   {id:2,ty:"out",am:3200,cat:"inventory",no:"Stock purchase",dt:"Mar 16"},
   {id:3,ty:"in",am:8700,cat:"sales",no:"Wholesale – Ahmed",dt:"Mar 15"},
@@ -81,9 +73,7 @@ const TX: TxItem[] = [
   {id:13,ty:"in",am:9900,cat:"sales",no:"Weekend rush",dt:"Mar 10"},
 ];
 
-interface CustItem { id: number; nm: string; ph: string; ow: number; pd: number; tr: number }
-
-const CUST: CustItem[] = [
+const CUST=[
   {id:1,nm:"Ahmed Hassan",ph:"+201012345678",ow:8700,pd:25000,tr:92},
   {id:2,nm:"Mohamed Ali",ph:"+201098765432",ow:15000,pd:45000,tr:85},
   {id:3,nm:"Sara Ibrahim",ph:"+201155544433",ow:3800,pd:12000,tr:95},
@@ -93,15 +83,12 @@ const CUST: CustItem[] = [
 
 const MO=[{m:"Oct",i:62000,e:41000},{m:"Nov",i:78000,e:52000},{m:"Dec",i:95000,e:61000},{m:"Jan",i:71000,e:48000},{m:"Feb",i:84000,e:55000},{m:"Mar",i:91500,e:21450}];
 
-const Card = ({children,className="",style={}}: {children: React.ReactNode; className?: string; style?: React.CSSProperties}) => (
-  <div className={`rounded-2xl bg-white ${className}`} style={{border:`1px solid ${TK.border}`,boxShadow:TK.sh,...style}}>{children}</div>
-);
+// ── Shared ──
+const Card=({children,className="",style={}})=><div className={`rounded-2xl bg-white ${className}`} style={{border:`1px solid ${TK.border}`,boxShadow:TK.sh,...style}}>{children}</div>;
 
-const Badge = ({t,c=TK.ok}: {t: string; c?: string}) => (
-  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{background:`${c}14`,color:c}}>✓ {t}</span>
-);
+const Badge=({t,c=TK.ok})=><span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{background:`${c}14`,color:c}}>✓ {t}</span>;
 
-const Modal = ({open,onClose,title,wide,children}: {open: boolean; onClose: () => void; title: string; wide?: boolean; children: React.ReactNode}) => {
+const Modal=({open,onClose,title,wide,children})=>{
   if(!open) return null;
   return <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-[4vh]" onClick={onClose}>
     <div className="absolute inset-0 bg-black/25 backdrop-blur-[2px]"/>
@@ -115,12 +102,12 @@ const Modal = ({open,onClose,title,wide,children}: {open: boolean; onClose: () =
   </div>;
 };
 
-const Inp = ({label,value,onChange,type="text",placeholder,options,prefix}: {label?: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; options?: {v: string; l: string}[]; prefix?: string}) => (
+const Inp=({label,value,onChange,type="text",placeholder,options,prefix})=>(
   <div className="mb-3">
     {label&&<label className="block text-[10px] font-bold mb-1 uppercase tracking-wider" style={{color:TK.textM}}>{label}</label>}
     <div className="relative">
       {prefix&&<span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold" style={{color:TK.textM}}>{prefix}</span>}
-      {options?<select value={value} onChange={e=>onChange(e.target.value)} className="w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}>
+      {options?<select value={value} onChange={e=>onChange(e.target.value)} className={`w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200`} style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}>
         {options.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
       </select>:
       <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} className={`w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200 ${prefix?"pl-12":""}`} style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}/>}
@@ -128,9 +115,12 @@ const Inp = ({label,value,onChange,type="text",placeholder,options,prefix}: {lab
   </div>
 );
 
-const fmt = (n: number) => n.toLocaleString();
+const fmt=n=>n.toLocaleString();
 
-const Login = ({onLogin}: {onLogin: () => void}) => {
+// ════════════════════════════════════════
+// LOGIN
+// ════════════════════════════════════════
+const Login=({onLogin})=>{
   const [em,setEm]=useState("admin@feloosak.com");
   const [pw,setPw]=useState("••••••••");
   const [showPw,setShowPw]=useState(false);
@@ -187,15 +177,18 @@ const Login = ({onLogin}: {onLogin: () => void}) => {
   </div>;
 };
 
-const RegSel = ({onSel}: {onSel: (r: RegionKey) => void}) => (
+// ════════════════════════════════════════
+// REGION SELECT
+// ════════════════════════════════════════
+const RegSel=({onSel})=>(
   <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{background:TK.bg}}>
     <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style={{background:"linear-gradient(135deg,#C8A630,#E8C840)"}}><span className="text-xl font-black" style={{color:"#1A1510"}}>ف</span></div>
     <h2 className="text-lg font-bold mb-1" style={{color:TK.text}}>{LL.selectRegion}</h2>
     <p className="text-xs mb-6 text-center max-w-xs" style={{color:TK.textM}}>{LL.regionNote}</p>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
-      {(Object.values(RG) as RegionInfo[]).map(r=>(
+      {Object.values(RG).map(r=>(
         <Card key={r.id} className="p-5 cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.99]">
-          <button onClick={()=>onSel(r.id as RegionKey)} className="w-full text-left">
+          <button onClick={()=>onSel(r.id)} className="w-full text-left">
             <span className="text-3xl block mb-2">{r.fl}</span>
             <p className="text-base font-bold" style={{color:TK.text}}>{r.n}</p>
             <p className="text-sm font-medium" style={{color:TK.accent}}>{r.ar}</p>
@@ -212,13 +205,16 @@ const RegSel = ({onSel}: {onSel: (r: RegionKey) => void}) => (
   </div>
 );
 
-const Dash = ({R,tx,cu}: {R: RegionInfo; tx: TxItem[]; cu: CustItem[]}) => {
+// ════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════
+const Dash=({R,tx,cu})=>{
   const c=R.cur;
   const tI=tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);
   const tO=tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);
   const bal=tI-tO;
   const owd=cu.reduce((s,x)=>s+x.ow,0);
-  const catD=useMemo(()=>{const m: Record<string,number>={};tx.filter(t=>t.ty==="out").forEach(t=>{m[t.cat]=(m[t.cat]||0)+t.am;});return Object.entries(m).map(([n,v])=>({name:LL[n]||n,value:v})).sort((a,b)=>b.value-a.value).slice(0,5);},[tx]);
+  const catD=useMemo(()=>{const m={};tx.filter(t=>t.ty==="out").forEach(t=>{m[t.cat]=(m[t.cat]||0)+t.am;});return Object.entries(m).map(([n,v])=>({name:LL[n]||n,value:v})).sort((a,b)=>b.value-a.value).slice(0,5);},[tx]);
 
   return <div className="space-y-4">
     <div className="flex items-center justify-between">
@@ -226,7 +222,7 @@ const Dash = ({R,tx,cu}: {R: RegionInfo; tx: TxItem[]; cu: CustItem[]}) => {
       <Badge t={`${R.auth} ${R.eM?"Active":"Pilot"}`} c={R.eM?TK.ok:TK.warn}/>
     </div>
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {[{i:"💰",l:LL.balance,v:`${c} ${fmt(bal)}`,ch:"+17%",cl:TK.accent},{i:"📈",l:LL.income,v:`${c} ${fmt(tI)}`,ch:"+8.9%",cl:TK.ok},{i:"📉",l:LL.expense,v:`${c} ${fmt(tO)}`,ch:"-3.2%",cl:TK.bad},{i:"💳",l:LL.receivable,v:`${c} ${fmt(owd)}`,ch:`${cu.filter(x=>x.ow>0).length}`,cl:TK.warn}].map((s,i)=>(
+      {[[{i:"💰",l:LL.balance,v:`${c} ${fmt(bal)}`,ch:"+17%",cl:TK.accent}],[{i:"📈",l:LL.income,v:`${c} ${fmt(tI)}`,ch:"+8.9%",cl:TK.ok}],[{i:"📉",l:LL.expense,v:`${c} ${fmt(tO)}`,ch:"-3.2%",cl:TK.bad}],[{i:"💳",l:LL.receivable,v:`${c} ${fmt(owd)}`,ch:`${cu.filter(x=>x.ow>0).length}`,cl:TK.warn}]].flat().map((s,i)=>(
         <Card key={i} className="p-4"><div className="flex items-start justify-between mb-2"><span className="text-lg">{s.i}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{background:TK.okBg,color:TK.ok}}>{s.ch}</span></div>
           <p className="text-[10px] font-medium" style={{color:TK.textM}}>{s.l}</p><p className="text-lg font-extrabold" style={{color:TK.text}}>{s.v}</p></Card>
       ))}
@@ -237,7 +233,7 @@ const Dash = ({R,tx,cu}: {R: RegionInfo; tx: TxItem[]; cu: CustItem[]}) => {
         <ResponsiveContainer width="100%" height={170}>
           <AreaChart data={MO.map(d=>({m:d.m,i:d.i,e:d.e}))}>
             <defs><linearGradient id="gI" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={TK.ok} stopOpacity={0.15}/><stop offset="100%" stopColor={TK.ok} stopOpacity={0}/></linearGradient><linearGradient id="gE" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={TK.bad} stopOpacity={0.15}/><stop offset="100%" stopColor={TK.bad} stopOpacity={0}/></linearGradient></defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={TK.borderL}/><XAxis dataKey="m" tick={{fill:TK.textM,fontSize:10}} axisLine={false}/><YAxis tick={{fill:TK.textM,fontSize:10}} axisLine={false} tickFormatter={(v: number)=>`${(v/1000).toFixed(0)}K`}/>
+            <CartesianGrid strokeDasharray="3 3" stroke={TK.borderL}/><XAxis dataKey="m" tick={{fill:TK.textM,fontSize:10}} axisLine={false}/><YAxis tick={{fill:TK.textM,fontSize:10}} axisLine={false} tickFormatter={v=>`${(v/1000).toFixed(0)}K`}/>
             <Tooltip contentStyle={{background:"#fff",border:`1px solid ${TK.border}`,borderRadius:12,fontSize:11,boxShadow:TK.shM}}/>
             <Area type="monotone" dataKey="i" stroke={TK.ok} fill="url(#gI)" strokeWidth={2} name="Income"/><Area type="monotone" dataKey="e" stroke={TK.bad} fill="url(#gE)" strokeWidth={2} name="Expense"/>
           </AreaChart>
@@ -265,7 +261,10 @@ const Dash = ({R,tx,cu}: {R: RegionInfo; tx: TxItem[]; cu: CustItem[]}) => {
   </div>;
 };
 
-const CashPg = ({R,tx,setTx,cu}: {R: RegionInfo; tx: TxItem[]; setTx: React.Dispatch<React.SetStateAction<TxItem[]>>; cu: CustItem[]}) => {
+// ════════════════════════════════════════
+// CASH IN / OUT
+// ════════════════════════════════════════
+const CashPg=({R,tx,setTx,cu})=>{
   const c=R.cur;
   const [tab,setTab]=useState("all");
   const [showAdd,setShowAdd]=useState(false);
@@ -274,14 +273,14 @@ const CashPg = ({R,tx,setTx,cu}: {R: RegionInfo; tx: TxItem[]; setTx: React.Disp
   const tI=tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);
   const tO=tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);
   const fl=useMemo(()=>{let l=[...tx];if(tab==="in")l=l.filter(t=>t.ty==="in");if(tab==="out")l=l.filter(t=>t.ty==="out");return l;},[tx,tab]);
-  const addTx=()=>{if(!am||isNaN(Number(am)))return;setTx(p=>[{id:Date.now(),ty,am:parseFloat(am),cat:ca,no,dt:"Mar 16"},...p]);setShowAdd(false);setAm("");setNo("");};
+  const addTx=()=>{if(!am||isNaN(am))return;setTx(p=>[{id:Date.now(),ty,am:parseFloat(am),cat:ca,no,dt:"Mar 16"},...p]);setShowAdd(false);setAm("");setNo("");};
 
   return <div className="space-y-3">
     <div className="flex items-center justify-between"><h1 className="text-lg font-bold" style={{color:TK.text}}>{LL.cash}</h1>
       <button onClick={()=>setShowAdd(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>+ {LL.add}</button></div>
     <div className="grid grid-cols-3 gap-2">
       {[[LL.cashIn,tI,TK.ok,TK.okBg],[LL.cashOut,tO,TK.bad,TK.badBg],[LL.balance,tI-tO,TK.accent,TK.accentBg]].map(([l,v,cl,bg],i)=>(
-        <div key={i} className="p-3 rounded-xl text-center" style={{background:bg as string,border:`1px solid ${cl}15`}}><p className="text-[9px] font-bold uppercase" style={{color:cl as string}}>{l as string}</p><p className="text-sm font-extrabold mt-0.5" style={{color:TK.text}}>{c} {fmt(v as number)}</p></div>
+        <div key={i} className="p-3 rounded-xl text-center" style={{background:bg,border:`1px solid ${cl}15`}}><p className="text-[9px] font-bold uppercase" style={{color:cl}}>{l}</p><p className="text-sm font-extrabold mt-0.5" style={{color:TK.text}}>{c} {fmt(v)}</p></div>
       ))}
     </div>
     <div className="flex gap-1 p-1 rounded-xl" style={{background:TK.muted}}>
@@ -299,10 +298,10 @@ const CashPg = ({R,tx,setTx,cu}: {R: RegionInfo; tx: TxItem[]; setTx: React.Disp
       <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{background:isI?TK.okBg:TK.badBg}}>{isI?"↓":"↑"}</div>
       <div className="flex-1 min-w-0"><p className="text-xs font-semibold truncate" style={{color:TK.text}}>{t.no||LL[t.cat]||t.cat}</p><p className="text-[10px]" style={{color:TK.textM}}>{LL[t.cat]||t.cat} • {t.dt}</p></div>
       <p className="text-xs font-bold" style={{color:isI?TK.ok:TK.bad}}>{isI?"+":"-"}{c} {fmt(t.am)}</p>
-      <button onClick={()=>setTx(p=>p.filter(x=>x.id!==t.id))} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs transition-opacity">✕</button>
+      <button onClick={()=>setTx(p=>p.filter(x=>x.id!==t.id))} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs">✕</button>
     </div>})}</div>}
     <Modal open={showAdd} onClose={()=>setShowAdd(false)} title={`${LL.add} (${R.fl} ${c})`}>
-      <div className="flex gap-2 mb-3">{(["in","out"] as const).map(t=><button key={t} onClick={()=>setTy(t)} className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all" style={{background:ty===t?(t==="in"?TK.ok:TK.bad):TK.muted,color:ty===t?"#fff":TK.textM}}>{t==="in"?`↓ ${LL.cashIn}`:`↑ ${LL.cashOut}`}</button>)}</div>
+      <div className="flex gap-2 mb-3">{["in","out"].map(t=><button key={t} onClick={()=>setTy(t)} className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all" style={{background:ty===t?(t==="in"?TK.ok:TK.bad):TK.muted,color:ty===t?"#fff":TK.textM}}>{t==="in"?`↓ ${LL.cashIn}`:`↑ ${LL.cashOut}`}</button>)}</div>
       <Inp label={LL.amount} value={am} onChange={setAm} type="number" placeholder="0.00" prefix={c}/>
       <Inp label={LL.category} value={ca} onChange={setCa} options={CATS.map(x=>({v:x,l:LL[x]||x}))}/>
       <Inp label={LL.note} value={no} onChange={setNo} placeholder="Add a note..."/>
@@ -311,21 +310,22 @@ const CashPg = ({R,tx,setTx,cu}: {R: RegionInfo; tx: TxItem[]; setTx: React.Disp
   </div>;
 };
 
-interface InvLine { n: string; q: number; p: number; d: number }
-
-const InvPg = ({R,cu}: {R: RegionInfo; cu: CustItem[]}) => {
+// ════════════════════════════════════════
+// INVOICES — Advanced Builder
+// ════════════════════════════════════════
+const InvPg=({R,cu})=>{
   const c=R.cur;
   const [showC,setShowC]=useState(false);
   const [iCu,setICu]=useState("");const [iTm,setITm]=useState("net30");const [iAd,setIAd]=useState("");const [iNo,setINo]=useState("");
-  const [its,setIts]=useState<InvLine[]>([{n:"",q:1,p:0,d:0}]);
+  const [its,setIts]=useState([{n:"",q:1,p:0,d:0}]);
   const addIt=()=>setIts(p=>[...p,{n:"",q:1,p:0,d:0}]);
-  const upIt=(i: number,f: string,v: string)=>setIts(p=>p.map((x,j)=>j===i?{...x,[f]:f==="n"?v:parseFloat(v)||0}:x));
-  const rmIt=(i: number)=>setIts(p=>p.filter((_,j)=>j!==i));
+  const upIt=(i,f,v)=>setIts(p=>p.map((x,j)=>j===i?{...x,[f]:f==="n"?v:parseFloat(v)||0}:x));
+  const rmIt=(i)=>setIts(p=>p.filter((_,j)=>j!==i));
   const lines=its.map(x=>({...x,disc:x.q*x.p*(x.d/100),lt:x.q*x.p*(1-x.d/100)}));
   const sub=lines.reduce((s,x)=>s+x.lt,0);const vat=Math.round(sub*R.vr);const tot=sub+vat;
 
   const sinv=[{nm:"FEL-001",cu:"Ahmed Hassan",t:Math.round(8700*(1+R.vr)),s:"unpaid"},{nm:"FEL-002",cu:"Mohamed Ali",t:Math.round(15000*(1+R.vr)),s:"unpaid"},{nm:"FEL-003",cu:"Fatma Youssef",t:Math.round(6500*(1+R.vr)),s:"paid"},{nm:"FEL-004",cu:"Sara Ibrahim",t:Math.round(3800*(1+R.vr)),s:"draft"}];
-  const sc: Record<string,string>={paid:TK.ok,unpaid:TK.warn,draft:TK.textM};
+  const sc={paid:TK.ok,unpaid:TK.warn,draft:TK.textM};
 
   return <div className="space-y-3">
     <div className="flex items-center justify-between flex-wrap gap-2">
@@ -337,7 +337,7 @@ const InvPg = ({R,cu}: {R: RegionInfo; cu: CustItem[]}) => {
     <div className="p-3 rounded-xl text-[11px] font-semibold" style={{background:R.id==="EG"?TK.badBg:TK.infoBg,color:R.id==="EG"?TK.bad:TK.info,border:`1px solid ${R.id==="EG"?`${TK.bad}15`:`${TK.info}15`}`}}>
       🏛️ {R.id==="EG"?"ETA: Real-time XML/JSON • UUID+QR • GS1 codes • Digital sig • 7yr archival":"FTA: Tax invoices with TRN • Peppol CTC pilot July 2026 • Mandatory 2027 • 5yr archival"}
     </div>
-    <div className="grid grid-cols-4 gap-2">{[["VAT",`${(R.vr*100)}%`,TK.accent],["Count",`${sinv.length}`,TK.text],["Unpaid",`${sinv.filter(x=>x.s==="unpaid").length}`,TK.warn],["Archive",`${R.arch}yr`,TK.info]].map(([l,v,cl],i)=><Card key={i} className="p-2.5 text-center"><p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>{l as string}</p><p className="text-lg font-black" style={{color:cl as string}}>{v as string}</p></Card>)}</div>
+    <div className="grid grid-cols-4 gap-2">{[["VAT",`${(R.vr*100)}%`,TK.accent],["Count",`${sinv.length}`,TK.text],["Unpaid",`${sinv.filter(x=>x.s==="unpaid").length}`,TK.warn],["Archive",`${R.arch}yr`,TK.info]].map(([l,v,cl],i)=><Card key={i} className="p-2.5 text-center"><p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>{l}</p><p className="text-lg font-black" style={{color:cl}}>{v}</p></Card>)}</div>
     <div className="space-y-1.5">{sinv.map((inv,i)=><Card key={i} className="p-3.5 flex items-center gap-3 hover:shadow-md transition-all cursor-pointer">
       <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:TK.accentBg}}>📄</div>
       <div className="flex-1"><p className="text-xs font-semibold" style={{color:TK.text}}>{inv.nm}</p><p className="text-[10px]" style={{color:TK.textM}}>{inv.cu}</p></div>
@@ -377,19 +377,20 @@ const InvPg = ({R,cu}: {R: RegionInfo; cu: CustItem[]}) => {
       </div>
       <Inp label={LL.notes} value={iNo} onChange={setINo} placeholder="Payment terms, bank details..."/>
       <div className="grid grid-cols-4 gap-2 mt-3">
-        {[["👁 Preview",TK.muted,TK.textS],["🖨 Print",TK.muted,TK.textS],["💾 Draft",TK.muted,TK.textS]].map(([l,bg,cl],i)=><button key={i} className="py-2 rounded-xl text-[11px] font-semibold" style={{background:bg as string,color:cl as string,border:`1px solid ${TK.border}`}}>{l as string}</button>)}
+        {[["👁 Preview",TK.muted,TK.textS],["🖨 Print",TK.muted,TK.textS],["💾 Draft",TK.muted,TK.textS]].map(([l,bg,cl],i)=><button key={i} className="py-2 rounded-xl text-[11px] font-semibold" style={{background:bg,color:cl,border:`1px solid ${TK.border}`}}>{l}</button>)}
         <button className="py-2 rounded-xl text-[11px] font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>📨 {R.id==="EG"?"Submit ETA":"Send"}</button>
       </div>
     </Modal>
   </div>;
 };
 
-interface ChatMsg { r: string; t: string }
-
-const AiPg = ({R,tx,cu}: {R: RegionInfo; tx: TxItem[]; cu: CustItem[]}) => {
+// ════════════════════════════════════════
+// AI INSIGHTS
+// ════════════════════════════════════════
+const AiPg=({R,tx,cu})=>{
   const c=R.cur;const tI=tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);const tO=tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);const bal=tI-tO;
-  const [msgs,setMsgs]=useState<ChatMsg[]>([{r:"ai",t:`Hi! I'm Feloosak AI for ${R.n}. Ask about finances, ${R.vl}, or ${R.auth} compliance. 💰`}]);
-  const [inp,setInp]=useState("");const [typ,setTyp]=useState(false);const ref=useRef<HTMLDivElement>(null);
+  const [msgs,setMsgs]=useState([{r:"ai",t:`Hi! I'm Feloosak AI for ${R.n}. Ask about finances, ${R.vl}, or ${R.auth} compliance. 💰`}]);
+  const [inp,setInp]=useState("");const [typ,setTyp]=useState(false);const ref=useRef(null);
 
   const send=()=>{
     if(!inp.trim())return;const q=inp.trim();setMsgs(p=>[...p,{r:"u",t:q}]);setInp("");setTyp(true);
@@ -439,7 +440,10 @@ const AiPg = ({R,tx,cu}: {R: RegionInfo; tx: TxItem[]; cu: CustItem[]}) => {
   </div>;
 };
 
-const CompPg = ({R,tx}: {R: RegionInfo; tx: TxItem[]}) => {
+// ════════════════════════════════════════
+// COMPLIANCE
+// ════════════════════════════════════════
+const CompPg=({R,tx})=>{
   const c=R.cur;const tI=tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);const tO=tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);const pr=tI-tO;
   const oV=Math.round(tI*R.vr);const iV=Math.round(tO*R.vr);const nV=oV-iV;
   const ct=R.id==="EG"?Math.round(Math.max(0,pr)*R.ct):Math.round(Math.max(0,pr-R.ctT)*R.ct);
@@ -448,7 +452,7 @@ const CompPg = ({R,tx}: {R: RegionInfo; tx: TxItem[]}) => {
     <div className="flex items-center justify-between"><div><h1 className="text-lg font-bold" style={{color:TK.text}}>{R.fl} Compliance — {R.n}</h1><p className="text-[10px]" style={{color:TK.textM}}>{R.auth} • {R.vl}</p></div><Badge t={R.eM?"Active":"Pilot"} c={R.eM?TK.ok:TK.warn}/></div>
     <Card className="p-4"><h3 className="text-sm font-bold mb-1" style={{color:TK.text}}>{LL.vatSum} — {R.vl}</h3>
       <div className="grid grid-cols-3 gap-2 mt-3">{[[LL.outVat,oV,TK.ok,TK.okBg],[LL.inVat,iV,TK.bad,TK.badBg],[LL.netVat,nV,TK.accent,TK.accentBg]].map(([l,v,cl,bg],i)=>
-        <div key={i} className="p-3 rounded-xl text-center" style={{background:bg as string}}><p className="text-[9px] font-bold" style={{color:cl as string}}>{l as string}</p><p className="text-base font-black mt-0.5" style={{color:TK.text}}>{c} {fmt(v as number)}</p></div>
+        <div key={i} className="p-3 rounded-xl text-center" style={{background:bg}}><p className="text-[9px] font-bold" style={{color:cl}}>{l}</p><p className="text-base font-black mt-0.5" style={{color:TK.text}}>{c} {fmt(v)}</p></div>
       )}</div></Card>
     <Card className="p-4"><h3 className="text-sm font-bold mb-1" style={{color:TK.text}}>{LL.corpTax} — {R.id==="EG"?"22.5% flat":"0%→9% (AED 375K)"}</h3>
       <div className="grid grid-cols-2 gap-2 mt-3">
@@ -468,12 +472,15 @@ const CompPg = ({R,tx}: {R: RegionInfo; tx: TxItem[]}) => {
   </div>;
 };
 
-const SetPg = ({R,setReg,setAuth}: {R: RegionInfo; setReg: (r: RegionKey | null) => void; setAuth: (v: boolean) => void}) => (
+// ════════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════════
+const SetPg=({R,setReg,setAuth})=>(
   <div className="space-y-4">
     <h1 className="text-lg font-bold" style={{color:TK.text}}>{LL.settings}</h1>
     <Card className="p-4 space-y-4">
       <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:`${TK.accent}12`}}>📍</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>{LL.region}</p><p className="text-[10px]" style={{color:TK.textM}}>{R.fl} {R.n} • {R.auth} • {R.vl}</p></div></div>
-        <div className="flex rounded-xl overflow-hidden" style={{border:`1px solid ${TK.border}`}}>{(["EG","AE"] as RegionKey[]).map(r=><button key={r} onClick={()=>setReg(r)} className="px-3 py-1.5 text-[11px] font-bold" style={{background:R.id===r?TK.accent:"transparent",color:R.id===r?"#fff":TK.textM}}>{RG[r].fl} {r}</button>)}</div>
+        <div className="flex rounded-xl overflow-hidden" style={{border:`1px solid ${TK.border}`}}>{["EG","AE"].map(r=><button key={r} onClick={()=>setReg(r)} className="px-3 py-1.5 text-[11px] font-bold" style={{background:R.id===r?TK.accent:"transparent",color:R.id===r?"#fff":TK.textM}}>{RG[r].fl} {r}</button>)}</div>
       </div>
       <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:`${TK.ok}12`}}>🛡</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>{R.auth}</p><p className="text-[10px]" style={{color:TK.textM}}>{R.fmt} • {R.eM?"Mandatory":"Pilot"}</p></div></div>
         <Badge t={R.eM?"Active":"Pilot"} c={R.eM?TK.ok:TK.warn}/></div>
@@ -487,9 +494,12 @@ const SetPg = ({R,setReg,setAuth}: {R: RegionInfo; setReg: (r: RegionKey | null)
   </div>
 );
 
+// ════════════════════════════════════════
+// MAIN APP
+// ════════════════════════════════════════
 export default function App(){
   const [auth,setAuth]=useState(false);
-  const [reg,setReg]=useState<RegionKey | null>(null);
+  const [reg,setReg]=useState(null);
   const [pg,setPg]=useState("dash");
   const [sb,setSb]=useState(true);
   const [tx,setTx]=useState(TX);
@@ -511,7 +521,7 @@ export default function App(){
   }};
 
   return <div className="flex h-screen overflow-hidden" style={{background:TK.bg,fontFamily:"'DM Sans',system-ui,sans-serif"}}>
-    <aside className={`${sb?"w-52":"w-14"} transition-all duration-300 flex flex-col bg-white border-r shrink-0`} style={{borderColor:TK.border}}>
+    <aside className={`${sb?"w-52":"w-14"} transition-all duration-300 flex flex-col bg-white border-r`} style={{borderColor:TK.border}}>
       <div className={`p-3 flex items-center ${sb?"gap-2.5":"justify-center"}`}>
         <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-black" style={{background:"linear-gradient(135deg,#C8A630,#E8C840)",color:"#1A1510"}}>ف</div>
         {sb&&<div><p className="text-xs font-bold" style={{color:TK.accent}}>Feloosak</p><p className="text-[8px]" style={{color:TK.textM}}>{R.fl} {R.n} • {R.cur}</p></div>}
@@ -521,8 +531,8 @@ export default function App(){
       </button>;})}</nav>
       <div className="p-2"><button onClick={()=>setSb(!sb)} className="w-full p-1.5 rounded-lg hover:bg-gray-50 flex items-center justify-center text-gray-400 text-sm">{sb?"◂":"▸"}</button></div>
     </aside>
-    <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-      <header className="flex items-center justify-between px-5 py-2.5 bg-white border-b shrink-0" style={{borderColor:TK.border}}>
+    <main className="flex-1 flex flex-col overflow-hidden">
+      <header className="flex items-center justify-between px-5 py-2.5 bg-white border-b" style={{borderColor:TK.border}}>
         <div className="flex items-center gap-3">
           <div className="relative"><span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span><input placeholder={LL.search} className="pl-8 pr-3 py-1.5 rounded-xl text-xs w-48 outline-none" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}/></div>
           <span className="px-2.5 py-1 rounded-full text-[9px] font-bold" style={{background:R.id==="EG"?TK.badBg:TK.okBg,color:R.id==="EG"?"#C8102E":"#00732F"}}>{R.fl} {R.auth} • {R.vl}</span>
