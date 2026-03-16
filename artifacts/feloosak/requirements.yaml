@@ -1,0 +1,15 @@
+packages:
+  "framer-motion": "For page transitions, swipe-to-delete, and fluid bottom sheets to match the mobile app feel"
+  "clsx": "Utility for conditionally joining classNames together"
+  "tailwind-merge": "Utility to efficiently merge Tailwind CSS classes"
+  "lucide-react": "Beautiful consistent icons for the UI"
+  "date-fns": "For elegant date formatting in transactions"
+
+images:
+  - path: "artifacts/feloosak/public/images/login-bg.png"
+    description: "Soft elegant golden abstract background, light warm off-white, minimal professional finance, very subtle geometric gradients"
+    aspect_ratio: "9:16"
+
+notes:
+  - "The app uses a mock client-side store (use-app-state.tsx) matching the Flutter app's internal state"
+  - "RTL support is dynamically injected via the dir attribute when language switches to Arabic"

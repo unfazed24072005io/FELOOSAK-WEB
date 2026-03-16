@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-accent-bg: hsl(var(--accent-bg));
+  
+  --color-success: hsl(var(--success));
+  --color-success-bg: hsl(var(--success-bg));
+  
+  --color-danger: hsl(var(--danger));
+  --color-danger-bg: hsl(var(--danger-bg));
+  
+  --color-warning: hsl(var(--warning));
+  --color-warning-bg: hsl(var(--warning-bg));
+  
+  --color-info: hsl(var(--info));
+  --color-info-bg: hsl(var(--info-bg));
+
+  --font-sans: 'Outfit', sans-serif;
+  --font-arabic: 'Cairo', sans-serif;
+}
+
+:root {
+  /* Warm off-white background (#F6F5F0) */
+  --background: 45 25% 95%;
+  /* Dark text (#1A1A1A) */
+  --foreground: 0 0% 10%;
+  
+  /* White cards */
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+  
+  /* Muted backgrounds (#FAF9F7) */
+  --muted: 45 20% 97%;
+  /* Muted text (#9C9590) */
+  --muted-foreground: 27 6% 60%;
+  
+  /* Borders (#E8E6E1) */
+  --border: 43 15% 90%;
+  
+  /* Golden Accent (#C8A630) */
+  --accent: 47 62% 49%;
+  --accent-foreground: 45 100% 10%;
+  --accent-bg: 47 85% 95%;
+  
+  /* Success (#22A06B) */
+  --success: 155 65% 38%;
+  --success-bg: 155 70% 94%;
+  
+  /* Danger (#E34935) */
+  --danger: 6 74% 55%;
+  --danger-bg: 6 95% 96%;
+  
+  /* Warning (#E5890A) */
+  --warning: 35 92% 47%;
+  --warning-bg: 35 100% 95%;
+  
+  /* Info (#2680EB) */
+  --info: 213 84% 54%;
+  --info-bg: 213 95% 95%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased font-sans selection:bg-accent selection:text-accent-foreground;
+    /* Smooth scrolling and prevent overscroll bounce effects to feel like a native app */
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* When dir=rtl, switch to Cairo font for Arabic text */
+  [dir="rtl"] {
+    @apply font-arabic tracking-normal;
+  }
+  
+  [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4, [dir="rtl"] h5, [dir="rtl"] h6 {
+    @apply tracking-normal;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+}
+
+/* Hide scrollbar for clean app-like lists */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

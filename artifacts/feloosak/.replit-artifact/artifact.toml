@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Feloosak"
+version = "1.0.0"
+id = "artifacts/feloosak"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 20116
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/feloosak run dev"
+
+[services.env]
+PORT = "20116"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/feloosak", "run", "build"]
+publicDir = "artifacts/feloosak/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
