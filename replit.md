@@ -60,8 +60,8 @@ feloosk — AI-powered finance super-app for Egypt & UAE. React+Vite SPA with Ta
 - Login screen with split-panel layout (dark branding panel + sign-in form)
 - Region selector (Egypt / UAE) with different tax rules, currencies, compliance
 - Dashboard with Recharts (AreaChart monthly trend, PieChart top categories), stat cards, AI insight card, recent transactions
-- Cash In/Out page with tabs (All, Cash In, Cash Out, Customers), add entry modal, delete on hover, customer trust ratings
-- Invoices page with advanced invoice builder modal (multi-line items, qty/price/discount, VAT calc, subtotal/total, Submit ETA/Send)
+- Cash In/Out page with tabs (All, Cash In, Cash Out, Customers), add entry modal with date picker, transaction search/filter, delete on hover, customer trust ratings, full customer CRUD (add/edit/delete with email, address, TIN, invoice count)
+- Invoices page with status filter tabs (All/Draft/Unpaid/Overdue/Sent/Paid), revenue summary stats, advanced invoice builder (dynamic date, auto-calculated due date, % or flat discount per line, WHT toggle for Egypt, Seller/Buyer TIN, printable preview, draft save, total in words), mark as paid/sent, delete with confirmation
 - AI Insights page with variance analysis table and AI chat (keyword-based responses about VAT/tax/profit)
 - Compliance page with VAT summary, corporate tax calculator, UAE 2026 amendments, tax calendar
 - Settings page with region switcher, compliance badges, Egypt vs UAE comparison table, logout

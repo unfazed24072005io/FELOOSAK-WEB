@@ -18,10 +18,11 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
-    const { name, phone, owed, paid, trust } = req.body;
+    const { name, phone, email, address, tin, owed, paid, trust } = req.body;
     if (!name) return res.status(400).json({ error: "Name required" });
     const [customer] = await db.insert(customersTable).values({
       userId: req.session.userId, name, phone: phone || "",
+      email: email || "", address: address || "", tin: tin || "",
       owed: (owed || 0).toString(), paid: (paid || 0).toString(), trust: trust || 50,
     }).returning();
     res.json(customer);
@@ -34,10 +35,13 @@ router.put("/:id", async (req, res) => {
   try {
     if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
     const id = parseInt(req.params.id);
-    const { name, phone, owed, paid, trust } = req.body;
+    const { name, phone, email, address, tin, owed, paid, trust } = req.body;
     const updates: any = { updatedAt: new Date() };
     if (name !== undefined) updates.name = name;
     if (phone !== undefined) updates.phone = phone;
+    if (email !== undefined) updates.email = email;
+    if (address !== undefined) updates.address = address;
+    if (tin !== undefined) updates.tin = tin;
     if (owed !== undefined) updates.owed = owed.toString();
     if (paid !== undefined) updates.paid = paid.toString();
     if (trust !== undefined) updates.trust = trust;

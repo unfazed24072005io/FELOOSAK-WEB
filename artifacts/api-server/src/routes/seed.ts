@@ -69,11 +69,11 @@ router.post("/seed", async (req, res) => {
     await db.insert(transactionsTable).values(txData);
 
     const custData = [
-      { userId: user.id, name: "Ahmed Hassan", phone: "+201012345678", owed: "8700", paid: "25000", trust: 92 },
-      { userId: user.id, name: "Mohamed Ali", phone: "+201098765432", owed: "15000", paid: "45000", trust: 85 },
-      { userId: user.id, name: "Sara Ibrahim", phone: "+201155544433", owed: "3800", paid: "12000", trust: 95 },
-      { userId: user.id, name: "Khaled Mahmoud", phone: "+201234567890", owed: "22000", paid: "18000", trust: 65 },
-      { userId: user.id, name: "Fatma Youssef", phone: "+201188877766", owed: "0", paid: "35000", trust: 99 },
+      { userId: user.id, name: "Ahmed Hassan", phone: "+201012345678", email: "ahmed@company.eg", address: "15 Tahrir St, Cairo", tin: "123456789", owed: "8700", paid: "25000", trust: 92 },
+      { userId: user.id, name: "Mohamed Ali", phone: "+201098765432", email: "mohamed@business.eg", address: "22 Nile Corniche, Giza", tin: "987654321", owed: "15000", paid: "45000", trust: 85 },
+      { userId: user.id, name: "Sara Ibrahim", phone: "+201155544433", email: "sara@design.eg", address: "8 Zamalek, Cairo", tin: "456789123", owed: "3800", paid: "12000", trust: 95 },
+      { userId: user.id, name: "Khaled Mahmoud", phone: "+201234567890", email: "khaled@trade.eg", address: "45 Heliopolis, Cairo", tin: "789123456", owed: "22000", paid: "18000", trust: 65 },
+      { userId: user.id, name: "Fatma Youssef", phone: "+201188877766", email: "fatma@corp.eg", address: "33 Maadi, Cairo", tin: "321654987", owed: "0", paid: "35000", trust: 99 },
     ];
 
     await db.insert(customersTable).values(custData);

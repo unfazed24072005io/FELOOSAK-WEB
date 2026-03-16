@@ -134,7 +134,7 @@ interface CashBook {
   icon: string; color: string; tx: TxItem[]; createdAt: string;
   members: BookMember[];
 }
-interface CustItem { id: number; nm: string; ph: string; ow: number; pd: number; tr: number }
+interface CustItem { id: number; nm: string; ph: string; em: string; addr: string; tin: string; ow: number; pd: number; tr: number }
 interface UserData { id: number; email: string; name: string; region: string; avatar: string; bankName?: string; bankAccount?: string; bankIban?: string; bankSwift?: string; paymentLink?: string; businessName?: string; businessPhone?: string }
 
 const BOOK_ICONS=["🏪","🛒","💼","🏢","🏭","🚗","🏠","📱","💻","🎯","📦","🔧","👛","🏦","💳","🎓","✈️","🏥","🎭","📚"];
@@ -155,7 +155,28 @@ function mapBookFromApi(b: any): CashBook {
 }
 
 function mapCustomerFromApi(c: any): CustItem {
-  return { id: c.id, nm: c.name, ph: c.phone || "", ow: parseFloat(c.owed) || 0, pd: parseFloat(c.paid) || 0, tr: c.trust || 50 };
+  return { id: c.id, nm: c.name, ph: c.phone || "", em: c.email || "", addr: c.address || "", tin: c.tin || "", ow: parseFloat(c.owed) || 0, pd: parseFloat(c.paid) || 0, tr: c.trust || 50 };
+}
+
+function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function addDays(dateStr: string, days: number) { const d = new Date(dateStr); d.setDate(d.getDate() + days); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function getDueDate(dateStr: string, terms: string) { if (terms === "due") return dateStr; if (terms === "net60") return addDays(dateStr, 60); return addDays(dateStr, 30); }
+function isOverdue(dueDate: string) { if (!dueDate) return false; return new Date(dueDate) < new Date(todayStr()); }
+function numToWords(n: number): string {
+  if (n === 0) return "Zero";
+  const ones = ["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+  const tens = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+  if (n < 0) return "Minus " + numToWords(-n);
+  const intPart = Math.floor(n); const decPart = Math.round((n - intPart) * 100);
+  let result = "";
+  if (intPart >= 1000000) { result += numToWords(Math.floor(intPart / 1000000)) + " Million "; const rem = intPart % 1000000; if (rem > 0) result += numToWords(rem); }
+  else if (intPart >= 1000) { result += numToWords(Math.floor(intPart / 1000)) + " Thousand "; const rem = intPart % 1000; if (rem > 0) result += numToWords(rem); }
+  else if (intPart >= 100) { result += ones[Math.floor(intPart / 100)] + " Hundred "; const rem = intPart % 100; if (rem > 0) result += numToWords(rem); }
+  else if (intPart >= 20) { result += tens[Math.floor(intPart / 10)]; const rem = intPart % 10; if (rem > 0) result += "-" + ones[rem]; }
+  else if (intPart > 0) result += ones[intPart];
+  result = result.trim();
+  if (decPart > 0) result += ` and ${decPart}/100`;
+  return result || "Zero";
 }
 
 const Card = ({children,className="",style={},onClick}: {children: React.ReactNode; className?: string; style?: React.CSSProperties; onClick?: () => void}) => (
@@ -350,7 +371,7 @@ const RegSel = ({onSel}: {onSel: (r: RegionKey) => void}) => (
   </div>
 );
 
-const Dash = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) => {
+const Dash = ({R,books,cu,onNav}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]; onNav: (pg: string) => void}) => {
   const c=R.cur;
   const allTx = books.flatMap(b=>b.tx);
   const tI=allTx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);
@@ -358,23 +379,36 @@ const Dash = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
   const bal=tI-tO;
   const owd=cu.reduce((s,x)=>s+x.ow,0);
   const catD=useMemo(()=>{const m: Record<string,number>={};allTx.filter(t=>t.ty==="out").forEach(t=>{m[t.cat]=(m[t.cat]||0)+t.am;});return Object.entries(m).map(([n,v])=>({name:LL[n]||n,value:v})).sort((a,b)=>b.value-a.value).slice(0,5);},[allTx]);
+  const monthlyData=useMemo(()=>{
+    const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const m: Record<string,{i:number,e:number}>={};months.forEach(mo=>m[mo]={i:0,e:0});
+    allTx.forEach(t=>{const mo=t.dt.split(" ")[0];if(m[mo]){if(t.ty==="in")m[mo].i+=t.am;else m[mo].e+=t.am;}});
+    return months.filter(mo=>m[mo].i>0||m[mo].e>0).map(mo=>({m:mo,i:m[mo].i,e:m[mo].e}));
+  },[allTx]);
+  const chartData = monthlyData.length > 0 ? monthlyData : MO;
+  const profitPct = tO > 0 ? ((bal / tO) * 100).toFixed(1) : "0";
 
   return <div className="space-y-4">
     <div className="flex items-center justify-between">
-      <div><h1 className="text-xl font-extrabold" style={{color:TK.text}}>{LL.welcome} {R.fl}</h1><p className="text-xs" style={{color:TK.textM}}>March 16, 2026 • {R.n} • {R.vl}</p></div>
+      <div><h1 className="text-xl font-extrabold" style={{color:TK.text}}>{LL.welcome} {R.fl}</h1><p className="text-xs" style={{color:TK.textM}}>{todayStr()} • {R.n} • {R.vl}</p></div>
       <Badge t={`${R.auth} ${R.eM?"Active":"Pilot"}`} c={R.eM?TK.ok:TK.warn}/>
     </div>
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {[{i:"💰",l:LL.balance,v:`${c} ${fmt(bal)}`,ch:"+17%",cl:TK.accent},{i:"📈",l:LL.income,v:`${c} ${fmt(tI)}`,ch:"+8.9%",cl:TK.ok},{i:"📉",l:LL.expense,v:`${c} ${fmt(tO)}`,ch:"-3.2%",cl:TK.bad},{i:"💳",l:LL.receivable,v:`${c} ${fmt(owd)}`,ch:`${cu.filter(x=>x.ow>0).length}`,cl:TK.warn}].map((s,i)=>(
+      {[{i:"💰",l:LL.balance,v:`${c} ${fmt(bal)}`,ch:`${bal>=0?"+":""}${profitPct}%`,cl:TK.accent},{i:"📈",l:LL.income,v:`${c} ${fmt(tI)}`,ch:`${books.length} books`,cl:TK.ok},{i:"📉",l:LL.expense,v:`${c} ${fmt(tO)}`,ch:`${allTx.filter(t=>t.ty==="out").length} tx`,cl:TK.bad},{i:"💳",l:LL.receivable,v:`${c} ${fmt(owd)}`,ch:`${cu.filter(x=>x.ow>0).length} customers`,cl:TK.warn}].map((s,i)=>(
         <Card key={i} className="p-4"><div className="flex items-start justify-between mb-2"><span className="text-lg">{s.i}</span><span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{background:TK.okBg,color:TK.ok}}>{s.ch}</span></div>
           <p className="text-[10px] font-medium" style={{color:TK.textM}}>{s.l}</p><p className="text-lg font-extrabold" style={{color:TK.text}}>{s.v}</p></Card>
       ))}
     </div>
+    <div className="flex gap-2">
+      {[["+ Transaction","cash",TK.accent],["+ Invoice","inv",TK.ok],["+ Customer","cash",TK.info]].map(([l,pg,cl])=>
+        <button key={l as string} onClick={()=>onNav(pg as string)} className="flex-1 py-2.5 rounded-xl text-[11px] font-bold transition-all hover:shadow-md" style={{background:`${cl}12`,color:cl as string,border:`1px solid ${cl}20`}}>{l as string}</button>
+      )}
+    </div>
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
       <Card className="lg:col-span-2 p-4">
-        <div className="flex items-center justify-between mb-1"><div><p className="text-[9px] uppercase font-bold tracking-widest" style={{color:TK.textM}}>AUTO-GENERATED</p><h3 className="text-sm font-bold" style={{color:TK.text}}>{LL.trend}</h3></div><Badge t="AI-assisted" c={TK.accent}/></div>
+        <div className="flex items-center justify-between mb-1"><div><p className="text-[9px] uppercase font-bold tracking-widest" style={{color:TK.textM}}>{monthlyData.length>0?"FROM YOUR DATA":"SAMPLE DATA"}</p><h3 className="text-sm font-bold" style={{color:TK.text}}>{LL.trend}</h3></div><Badge t={monthlyData.length>0?"Live":"Demo"} c={monthlyData.length>0?TK.ok:TK.accent}/></div>
         <ResponsiveContainer width="100%" height={170}>
-          <AreaChart data={MO.map(d=>({m:d.m,i:d.i,e:d.e}))}>
+          <AreaChart data={chartData}>
             <defs><linearGradient id="gI" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={TK.ok} stopOpacity={0.15}/><stop offset="100%" stopColor={TK.ok} stopOpacity={0}/></linearGradient><linearGradient id="gE" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={TK.bad} stopOpacity={0.15}/><stop offset="100%" stopColor={TK.bad} stopOpacity={0}/></linearGradient></defs>
             <CartesianGrid strokeDasharray="3 3" stroke={TK.borderL}/><XAxis dataKey="m" tick={{fill:TK.textM,fontSize:10}} axisLine={false}/><YAxis tick={{fill:TK.textM,fontSize:10}} axisLine={false} tickFormatter={(v: number)=>`${(v/1000).toFixed(0)}K`}/>
             <Tooltip contentStyle={{background:"#fff",border:`1px solid ${TK.border}`,borderRadius:12,fontSize:11,boxShadow:TK.shM}}/>
@@ -391,7 +425,7 @@ const Dash = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
     <Card className="p-4" style={{background:TK.accentBg,borderColor:`${TK.accent}25`}}>
       <div className="flex items-start gap-3"><span className="text-base mt-0.5">⚡</span><div>
         <p className="text-[10px] font-bold" style={{color:TK.accent}}>{LL.aiGen} <span style={{color:TK.textM}}>just now</span></p>
-        <p className="text-xs mt-1 leading-relaxed" style={{color:TK.text}}>Net profit <strong>{c} {fmt(bal)}</strong> (+17% MoM). You have <strong>{books.length} cash books</strong> ({books.filter(b=>b.type==="business").length} business, {books.filter(b=>b.type==="personal").length} personal). Est. VAT: <strong style={{color:TK.bad}}>{c} {fmt(Math.round(bal*R.vr))}</strong>. {R.id==="EG"?"Khaled Mahmoud 16 days overdue (EGP 22,000). Send ETA reminder.":"Profit below AED 375K threshold — 0% corporate tax."}</p>
+        <p className="text-xs mt-1 leading-relaxed" style={{color:TK.text}}>Net profit <strong>{c} {fmt(bal)}</strong> ({profitPct}% margin). You have <strong>{books.length} cash books</strong> ({books.filter(b=>b.type==="business").length} business, {books.filter(b=>b.type==="personal").length} personal). Est. VAT: <strong style={{color:TK.bad}}>{c} {fmt(Math.round(bal*R.vr))}</strong>. {cu.filter(x=>x.ow>0).length>0?`${cu.filter(x=>x.ow>0).length} customers owe ${c} ${fmt(owd)}. Follow up on overdue.`:"All customers are clear."}</p>
       </div></div>
     </Card>
     <Card className="p-4"><h3 className="text-sm font-bold mb-3" style={{color:TK.text}}>{LL.recentTx}</h3>
@@ -404,7 +438,7 @@ const Dash = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
   </div>;
 };
 
-const CashBookPg = ({R,books,reload,cu}: {R: RegionInfo; books: CashBook[]; reload: () => void; cu: CustItem[]}) => {
+const CashBookPg = ({R,books,reload,cu,invoices}: {R: RegionInfo; books: CashBook[]; reload: () => void; cu: CustItem[]; invoices?: any[]}) => {
   const c=R.cur; const reg=R.id as RegionKey;
   const [bookType,setBookType]=useState<"business"|"personal">("business");
   const [activeBook,setActiveBook]=useState<number|null>(null);
@@ -417,6 +451,16 @@ const CashBookPg = ({R,books,reload,cu}: {R: RegionInfo; books: CashBook[]; relo
   const [am,setAm]=useState("");const [ca,setCa]=useState("sales");const [no,setNo]=useState("");
   const [payMode,setPayMode]=useState("cash");
   const [proofFile,setProofFile]=useState<string>("");
+  const [txDate,setTxDate]=useState(todayStr());
+  const [searchTx,setSearchTx]=useState("");
+  const [showCustModal,setShowCustModal]=useState(false);
+  const [editCust,setEditCust]=useState<CustItem|null>(null);
+  const [custNm,setCustNm]=useState("");const [custPh,setCustPh]=useState("");
+  const [custEm,setCustEm]=useState("");const [custAddr,setCustAddr]=useState("");
+  const [custTin,setCustTin]=useState("");const [custOw,setCustOw]=useState("");
+  const [custTr,setCustTr]=useState("80");
+  const [custSaving,setCustSaving]=useState(false);
+  const [confirmDelCust,setConfirmDelCust]=useState<number|null>(null);
   const [newBookName,setNewBookName]=useState("");
   const [newBookIcon,setNewBookIcon]=useState("🏪");
   const [newMemberName,setNewMemberName]=useState("");
@@ -437,18 +481,35 @@ const CashBookPg = ({R,books,reload,cu}: {R: RegionInfo; books: CashBook[]; relo
     if(!am||isNaN(Number(am))||!currentBook)return;
     setSaving(true);
     try {
+      const d=new Date(txDate);const dateStr=d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
       await api.transactions.create({
         bookId: currentBook.id, type: ty, amount: parseFloat(am),
-        category: ca, note: no, date: "Mar 16", payMode, proof: proofFile || null,
+        category: ca, note: no, date: dateStr, payMode, proof: proofFile || null,
       });
       reload();
-      setShowAdd(false);setAm("");setNo("");setPayMode("cash");setProofFile("");
+      setShowAdd(false);setAm("");setNo("");setPayMode("cash");setProofFile("");setTxDate(todayStr());
     } catch(e) { console.error(e); }
     setSaving(false);
   };
 
   const removeTx=async(txId: number)=>{
     try { await api.transactions.delete(txId); reload(); } catch(e) { console.error(e); }
+  };
+  const openCustAdd=()=>{setEditCust(null);setCustNm("");setCustPh("");setCustEm("");setCustAddr("");setCustTin("");setCustOw("0");setCustTr("80");setShowCustModal(true);};
+  const openCustEdit=(x:CustItem)=>{setEditCust(x);setCustNm(x.nm);setCustPh(x.ph);setCustEm(x.em);setCustAddr(x.addr);setCustTin(x.tin);setCustOw(String(x.ow));setCustTr(String(x.tr));setShowCustModal(true);};
+  const saveCust=async()=>{
+    if(!custNm.trim())return;
+    setCustSaving(true);
+    try {
+      const data={name:custNm.trim(),phone:custPh,email:custEm,address:custAddr,tin:custTin,owed:parseFloat(custOw)||0,trust:parseInt(custTr)||80};
+      if(editCust) await api.customers.update(editCust.id,data);
+      else await api.customers.create(data);
+      reload();setShowCustModal(false);
+    } catch(e) { console.error(e); }
+    setCustSaving(false);
+  };
+  const delCust=async(id:number)=>{
+    try { await api.customers.delete(id); reload(); setConfirmDelCust(null); } catch(e) { console.error(e); }
   };
 
   const createBook=async()=>{
@@ -495,7 +556,8 @@ const CashBookPg = ({R,books,reload,cu}: {R: RegionInfo; books: CashBook[]; relo
     const bTx = currentBook.tx;
     const bIn = bTx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);
     const bOut = bTx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);
-    const fl = tab==="in"?bTx.filter(t=>t.ty==="in"):tab==="out"?bTx.filter(t=>t.ty==="out"):tab==="cust"?[]:bTx;
+    const filteredByTab = tab==="in"?bTx.filter(t=>t.ty==="in"):tab==="out"?bTx.filter(t=>t.ty==="out"):tab==="cust"?[]:bTx;
+    const fl = searchTx ? filteredByTab.filter(t=>(t.no||"").toLowerCase().includes(searchTx.toLowerCase())||(LL[t.cat]||t.cat).toLowerCase().includes(searchTx.toLowerCase())) : filteredByTab;
     const roleColors: Record<string,string> = {admin:TK.accent,editor:TK.info,viewer:TK.textM};
 
     return <div className="space-y-3">
@@ -524,12 +586,33 @@ const CashBookPg = ({R,books,reload,cu}: {R: RegionInfo; books: CashBook[]; relo
           <button key={v} onClick={()=>setTab(v)} className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all" style={{background:tab===v?"#fff":"transparent",color:tab===v?TK.text:TK.textM,boxShadow:tab===v?TK.sh:"none"}}>{l}</button>
         ))}
       </div>
-      {tab==="cust"?<div className="space-y-2">{cu.map(x=>{const tc=x.tr>=90?TK.ok:x.tr>=70?TK.warn:TK.bad;return <Card key={x.id} className="p-3.5"><div className="flex items-center gap-3">
+      {tab!=="cust"&&<div className="relative">
+        <input value={searchTx} onChange={e=>setSearchTx(e.target.value)} placeholder="Search transactions..." className="w-full p-2.5 pl-8 rounded-xl text-xs outline-none" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}/>
+        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px]" style={{color:TK.textM}}>🔍</span>
+        {searchTx&&<button onClick={()=>setSearchTx("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs" style={{color:TK.textM}}>✕</button>}
+      </div>}
+      {tab==="cust"?<div className="space-y-2">
+        <button onClick={openCustAdd} className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5" style={{background:TK.accentBg,border:`1px dashed ${TK.accent}40`,color:TK.accent}}>+ Add Customer</button>
+        {cu.map(x=>{const tc=x.tr>=90?TK.ok:x.tr>=70?TK.warn:TK.bad;const invCount=(invoices||[]).filter((iv:any)=>iv.customerId===x.id||iv.customer_id===x.id).length;return <Card key={x.id} className="p-3.5"><div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold" style={{background:TK.accentBg,color:TK.accent}}>{x.nm[0]}</div>
-        <div className="flex-1"><p className="text-xs font-semibold" style={{color:TK.text}}>{x.nm}</p><p className="text-[10px]" style={{color:TK.textM}}>{x.ph}</p></div>
+        <div className="flex-1">
+          <p className="text-xs font-semibold" style={{color:TK.text}}>{x.nm}</p>
+          <p className="text-[10px]" style={{color:TK.textM}}>{x.ph}{x.em?` · ${x.em}`:""}</p>
+          {x.addr&&<p className="text-[9px]" style={{color:TK.textM}}>{x.addr}</p>}
+          {x.tin&&<p className="text-[9px]" style={{color:TK.info}}>TIN: {x.tin}</p>}
+          {invCount>0&&<p className="text-[9px]" style={{color:TK.accent}}>{invCount} invoice{invCount>1?"s":""}</p>}
+        </div>
         <span className="px-2 py-0.5 rounded-full text-[9px] font-bold" style={{background:`${tc}12`,color:tc}}>★ {x.tr}%</span>
-        <div className="text-right">{x.ow>0?<p className="text-xs font-bold" style={{color:TK.bad}}>{c} {fmt(x.ow)}</p>:<p className="text-xs font-bold" style={{color:TK.ok}}>Clear ✓</p>}</div>
-      </div></Card>})}</div>
+        <div className="text-right">
+          {x.ow>0?<p className="text-xs font-bold" style={{color:TK.bad}}>{c} {fmt(x.ow)}</p>:<p className="text-xs font-bold" style={{color:TK.ok}}>Clear ✓</p>}
+          <div className="flex gap-1 mt-1 justify-end">
+            <button onClick={()=>openCustEdit(x)} className="px-1.5 py-0.5 rounded text-[9px] font-semibold" style={{background:TK.infoBg,color:TK.info}}>Edit</button>
+            {confirmDelCust===x.id?<><button onClick={()=>delCust(x.id)} className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{background:TK.badBg,color:TK.bad}}>Confirm</button><button onClick={()=>setConfirmDelCust(null)} className="px-1.5 py-0.5 rounded text-[9px]" style={{color:TK.textM}}>Cancel</button></>
+            :<button onClick={()=>setConfirmDelCust(x.id)} className="px-1.5 py-0.5 rounded text-[9px] font-semibold" style={{background:TK.badBg,color:TK.bad}}>Del</button>}
+          </div>
+        </div>
+      </div></Card>})}
+      </div>
       :<div>{fl.length===0?<div className="text-center py-10"><p className="text-2xl mb-2">📭</p><p className="text-sm font-semibold" style={{color:TK.textM}}>No transactions yet</p><p className="text-[11px] mt-1" style={{color:TK.textM}}>Add your first entry to get started</p></div>
       :<div className="space-y-1.5">{fl.map(t=>{const isI=t.ty==="in";return <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl group hover:bg-gray-50" style={{border:`1px solid ${TK.borderL}`}}>
         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{background:isI?TK.okBg:TK.badBg}}>{isI?"↓":"↑"}</div>
@@ -550,6 +633,7 @@ const CashBookPg = ({R,books,reload,cu}: {R: RegionInfo; books: CashBook[]; relo
         <Inp label={LL.amount} value={am} onChange={setAm} type="number" placeholder="0.00" prefix={c}/>
         <Inp label={LL.category} value={ca} onChange={setCa} options={currentCats.map(x=>({v:x,l:LL[x]||x.charAt(0).toUpperCase()+x.slice(1)}))}/>
         <Inp label="Payment Mode" value={payMode} onChange={setPayMode} groupedOptions={PAY_MODES[reg]}/>
+        <Inp label="Date" value={txDate} onChange={setTxDate} type="date"/>
         <Inp label={LL.note} value={no} onChange={setNo} placeholder="Add a note..."/>
         <div className="mb-3">
           <label className="block text-[10px] font-bold mb-1 uppercase tracking-wider" style={{color:TK.textM}}>Payment Proof</label>
@@ -602,6 +686,19 @@ const CashBookPg = ({R,books,reload,cu}: {R: RegionInfo; books: CashBook[]; relo
             <button onClick={addMember} className="px-4 py-2.5 rounded-xl text-xs font-bold mb-3" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>Add</button>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={showCustModal} onClose={()=>setShowCustModal(false)} title={editCust?"Edit Customer":"Add Customer"}>
+        <Inp label="Name *" value={custNm} onChange={setCustNm} placeholder="Customer name"/>
+        <Inp label="Phone" value={custPh} onChange={setCustPh} placeholder="+20 xxx xxx xxxx"/>
+        <Inp label="Email" value={custEm} onChange={setCustEm} type="email" placeholder="customer@email.com"/>
+        <Inp label="Address" value={custAddr} onChange={setCustAddr} placeholder="Business address"/>
+        <Inp label="Tax ID (TIN)" value={custTin} onChange={setCustTin} placeholder="Tax identification number"/>
+        <div className="grid grid-cols-2 gap-2">
+          <Inp label="Amount Owed" value={custOw} onChange={setCustOw} type="number" prefix={c}/>
+          <Inp label="Trust Score %" value={custTr} onChange={setCustTr} type="number" placeholder="0-100"/>
+        </div>
+        <button onClick={saveCust} disabled={custSaving} className="w-full py-2.5 rounded-xl text-sm font-bold mt-1" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>{custSaving?"Saving...":(editCust?"Update Customer":"Add Customer")}</button>
       </Modal>
 
       <Modal open={!!showProofView} onClose={()=>setShowProofView(null)} title="Payment Proof">
@@ -682,35 +779,52 @@ const CashBookPg = ({R,books,reload,cu}: {R: RegionInfo; books: CashBook[]; relo
   </div>;
 };
 
-interface InvLine { n: string; q: number; p: number; d: number }
+interface InvLine { n: string; q: number; p: number; d: number; dType: "pct"|"flat" }
 
 const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invoices: any[]; reload: () => void; user: UserData}) => {
   const c=R.cur;
   const [showC,setShowC]=useState(false);
   const [iCu,setICu]=useState("");const [iTm,setITm]=useState("net30");const [iAd,setIAd]=useState("");const [iNo,setINo]=useState("");
-  const [its,setIts]=useState<InvLine[]>([{n:"",q:1,p:0,d:0}]);
+  const [iDate,setIDate]=useState(todayStr());
+  const [its,setIts]=useState<InvLine[]>([{n:"",q:1,p:0,d:0,dType:"pct"}]);
   const [saving,setSaving]=useState(false);
   const [remInv,setRemInv]=useState<any|null>(null);
   const [copied,setCopied]=useState("");
   const [vatPct,setVatPct]=useState(Math.round(R.vr*100));
   const [editVat,setEditVat]=useState(false);
-  const addIt=()=>setIts(p=>[...p,{n:"",q:1,p:0,d:0}]);
-  const upIt=(i: number,f: string,v: string)=>setIts(p=>p.map((x,j)=>j===i?{...x,[f]:f==="n"?v:parseFloat(v)||0}:x));
+  const [whtOn,setWhtOn]=useState(false);
+  const [whtPct,setWhtPct]=useState(1);
+  const [sellerTin,setSellerTin]=useState("");
+  const [buyerTin,setBuyerTin]=useState("");
+  const [statusFilter,setStatusFilter]=useState("all");
+  const [confirmDel,setConfirmDel]=useState<number|null>(null);
+  const addIt=()=>setIts(p=>[...p,{n:"",q:1,p:0,d:0,dType:"pct"}]);
+  const upIt=(i: number,f: string,v: string)=>setIts(p=>p.map((x,j)=>j===i?{...x,[f]:f==="n"||f==="dType"?v:parseFloat(v)||0}:x));
   const rmIt=(i: number)=>setIts(p=>p.filter((_,j)=>j!==i));
-  const lines=its.map(x=>({...x,disc:x.q*x.p*(x.d/100),lt:x.q*x.p*(1-x.d/100)}));
-  const sub=lines.reduce((s,x)=>s+x.lt,0);const vat=Math.round(sub*(vatPct/100));const tot=sub+vat;
+  const lines=its.map(x=>{const gross=x.q*x.p;const disc=x.dType==="pct"?gross*(x.d/100):x.d;return {...x,disc,lt:gross-disc};});
+  const sub=lines.reduce((s,x)=>s+x.lt,0);
+  const discTotal=lines.reduce((s,x)=>s+x.disc,0);
+  const vat=Math.round(sub*(vatPct/100));
+  const wht=whtOn?Math.round(sub*(whtPct/100)):0;
+  const tot=sub+vat-wht;
+  const dueDate=getDueDate(iDate,iTm);
 
-  const sinv = invoices.map(inv => ({
-    id: inv.id,
-    nm: inv.invoiceNo,
-    cu: inv.customerId ? cu.find(c => c.id === inv.customerId)?.nm || "Unknown" : "Unknown",
-    cuPhone: inv.customerId ? cu.find(c => c.id === inv.customerId)?.ph || "" : "",
-    t: parseFloat(inv.total) || 0,
-    s: inv.status,
-    terms: inv.terms || "net30",
-    date: inv.invoiceDate || "",
-  }));
-  const sc: Record<string,string>={paid:TK.ok,unpaid:TK.warn,draft:TK.textM};
+  const sinv = invoices.map(inv => {
+    const dd = inv.dueDate || getDueDate(inv.invoiceDate||"", inv.terms||"net30");
+    const effectiveStatus = inv.status === "unpaid" && isOverdue(dd) ? "overdue" : inv.status;
+    return {
+      id: inv.id, nm: inv.invoiceNo,
+      cu: inv.customerId ? cu.find(c => c.id === inv.customerId)?.nm || "Unknown" : "Unknown",
+      cuPhone: inv.customerId ? cu.find(c => c.id === inv.customerId)?.ph || "" : "",
+      t: parseFloat(inv.total) || 0, s: effectiveStatus, rawStatus: inv.status,
+      terms: inv.terms || "net30", date: inv.invoiceDate || "", dueDate: dd,
+    };
+  });
+  const sc: Record<string,string>={paid:TK.ok,unpaid:TK.warn,draft:TK.textM,overdue:TK.bad,sent:TK.info};
+  const filteredInv = statusFilter === "all" ? sinv : sinv.filter(x => x.s === statusFilter);
+  const totalRevenue = sinv.reduce((s,x)=>s+x.t,0);
+  const totalPaid = sinv.filter(x=>x.s==="paid").reduce((s,x)=>s+x.t,0);
+  const totalOutstanding = sinv.filter(x=>x.s!=="paid"&&x.s!=="draft").reduce((s,x)=>s+x.t,0);
 
   const hasBankInfo = user.bankName || user.bankAccount || user.bankIban;
   const hasPayLink = !!user.paymentLink;
@@ -718,10 +832,8 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
 
   const buildReminderText = (inv: any, includeBank: boolean, includePayLink: boolean) => {
     const termsLabel: Record<string,string> = {net30:"Net 30 Days",net60:"Net 60 Days",due:"Due on Receipt"};
-    let msg = `Payment Reminder\n\nDear ${inv.cu},\n\nThis is a friendly reminder regarding the following invoice:\n\nInvoice: ${inv.nm}\nAmount Due: ${c} ${fmt(inv.t)}\nDate: ${inv.date}\nTerms: ${termsLabel[inv.terms]||inv.terms}\n`;
-    if (includePayLink && user.paymentLink) {
-      msg += `\nPay Online:\n${user.paymentLink}\n`;
-    }
+    let msg = `Payment Reminder\n\nDear ${inv.cu},\n\nThis is a friendly reminder regarding the following invoice:\n\nInvoice: ${inv.nm}\nAmount Due: ${c} ${fmt(inv.t)}\nDate: ${inv.date}\nDue: ${inv.dueDate}\nTerms: ${termsLabel[inv.terms]||inv.terms}\n`;
+    if (includePayLink && user.paymentLink) msg += `\nPay Online:\n${user.paymentLink}\n`;
     if (includeBank && hasBankInfo) {
       msg += `\nBank Transfer Details:\n`;
       if (user.bankName) msg += `Bank: ${user.bankName}\n`;
@@ -752,20 +864,71 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
     window.open(`mailto:?subject=${subject}&body=${encodeURIComponent(text)}`, "_blank");
   };
 
-  const createInvoice=async()=>{
+  const updateInvStatus = async (id: number, status: string) => {
+    try { await api.invoices.update(id, { status }); reload(); } catch(e) { console.error(e); }
+  };
+
+  const deleteInvoice = async (id: number) => {
+    try { await api.invoices.delete(id); setConfirmDel(null); reload(); } catch(e) { console.error(e); }
+  };
+
+  const createInvoice=async(asDraft=false)=>{
     setSaving(true);
     try {
       const no = `FEL-${String(invoices.length+1).padStart(3,"0")}`;
+      const selectedCust = cu.find(x => x.nm === iCu);
       await api.invoices.create({
-        invoiceNo: no, invoiceDate: "2026-03-16", status: "draft",
-        subtotal: sub, vatAmount: vat, total: tot, terms: iTm,
-        billingAddress: iAd, notes: iNo, items: its,
-        customerId: cu.find(x => x.nm === iCu)?.id || null,
+        invoiceNo: no, invoiceDate: iDate, dueDate,
+        status: asDraft ? "draft" : "unpaid",
+        subtotal: sub, discountTotal: discTotal, vatAmount: vat, whtAmount: wht, total: tot,
+        vatRate: vatPct, whtRate: whtOn ? whtPct : 0,
+        terms: iTm, billingAddress: iAd, notes: iNo, items: its,
+        customerId: selectedCust?.id || null,
+        sellerTin, buyerTin: selectedCust?.tin || buyerTin, currency: c,
       });
       reload();
-      setShowC(false);setIts([{n:"",q:1,p:0,d:0}]);setICu("");setIAd("");setINo("");
+      setShowC(false);setIts([{n:"",q:1,p:0,d:0,dType:"pct"}]);setICu("");setIAd("");setINo("");setIDate(todayStr());setSellerTin("");setBuyerTin("");setWhtOn(false);
     } catch(e) { console.error(e); }
     setSaving(false);
+  };
+
+  const previewInvoice = () => {
+    const selectedCust = cu.find(x => x.nm === iCu);
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>Invoice ${`FEL-${String(invoices.length+1).padStart(3,"0")}`}</title>
+      <style>body{font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;padding:20px;color:#1A1A1A}
+      .header{display:flex;justify-content:space-between;margin-bottom:30px}.logo{font-size:24px;font-weight:800;color:#C8A630}
+      table{width:100%;border-collapse:collapse;margin:20px 0}th{background:#F6F5F0;text-align:left;padding:10px;font-size:12px;text-transform:uppercase;color:#9C9590}
+      td{padding:10px;border-bottom:1px solid #E8E6E1;font-size:13px}.totals{text-align:right;margin-top:20px}
+      .totals div{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}.totals .total{font-weight:800;font-size:16px;color:#C8A630;border-top:2px solid #C8A630;padding-top:8px;margin-top:8px}
+      .words{background:#FEF9E7;padding:12px;border-radius:8px;font-size:11px;margin-top:16px;color:#6B6560}
+      .footer{margin-top:40px;text-align:center;font-size:10px;color:#9C9590}
+      @media print{body{margin:0}}</style></head><body>
+      <div class="header"><div><div class="logo">feloosk</div><p style="font-size:11px;color:#9C9590">${bizName}${user.businessPhone ? " · "+user.businessPhone : ""}</p>
+      ${sellerTin ? `<p style="font-size:10px;color:#9C9590">TIN: ${sellerTin}</p>` : ""}</div>
+      <div style="text-align:right"><h2 style="margin:0;color:#C8A630">INVOICE</h2>
+      <p style="font-size:12px">#FEL-${String(invoices.length+1).padStart(3,"0")}</p>
+      <p style="font-size:11px;color:#9C9590">Date: ${iDate}<br/>Due: ${dueDate}<br/>Terms: ${iTm==="net30"?"Net 30":iTm==="net60"?"Net 60":"Due on Receipt"}</p></div></div>
+      <div style="margin-bottom:20px"><strong style="font-size:12px">Bill To:</strong>
+      <p style="font-size:12px">${selectedCust?.nm||iCu||"—"}</p>
+      ${selectedCust?.addr ? `<p style="font-size:11px;color:#6B6560">${selectedCust.addr}</p>` : ""}
+      ${(selectedCust?.tin||buyerTin) ? `<p style="font-size:11px;color:#6B6560">TIN: ${selectedCust?.tin||buyerTin}</p>` : ""}
+      ${iAd ? `<p style="font-size:11px;color:#6B6560">${iAd}</p>` : ""}</div>
+      <table><thead><tr><th>#</th><th>Item</th><th>Qty</th><th>Price</th><th>Disc</th><th style="text-align:right">Total</th></tr></thead><tbody>
+      ${lines.map((l,i)=>`<tr><td>${i+1}</td><td>${l.n||"—"}</td><td>${l.q}</td><td>${c} ${fmt(l.q*l.p)}</td><td>${l.dType==="pct"?l.d+"%":c+" "+fmt(l.d)}</td><td style="text-align:right">${c} ${fmt(l.lt)}</td></tr>`).join("")}
+      </tbody></table>
+      <div class="totals" style="max-width:300px;margin-left:auto">
+      <div><span>Subtotal</span><span>${c} ${fmt(sub)}</span></div>
+      ${discTotal>0?`<div><span>Discount</span><span style="color:#E34935">-${c} ${fmt(discTotal)}</span></div>`:""}
+      <div><span>VAT (${vatPct}%)</span><span>${c} ${fmt(vat)}</span></div>
+      ${whtOn?`<div><span>WHT (${whtPct}%)</span><span style="color:#E34935">-${c} ${fmt(wht)}</span></div>`:""}
+      <div class="total"><span>Total</span><span>${c} ${fmt(tot)}</span></div></div>
+      <div class="words"><strong>Amount in words:</strong> ${numToWords(tot)} ${c}</div>
+      ${iNo?`<div style="margin-top:16px;padding:12px;background:#FAF9F7;border-radius:8px;font-size:11px"><strong>Notes:</strong> ${iNo}</div>`:""}
+      ${hasBankInfo?`<div style="margin-top:16px;padding:12px;background:#FAF9F7;border-radius:8px;font-size:11px"><strong>Payment Details:</strong><br/>${user.bankName?"Bank: "+user.bankName+"<br/>":""}${user.businessName?"Account: "+user.businessName+"<br/>":""}${user.bankAccount?"Account No: "+user.bankAccount+"<br/>":""}${user.bankIban?"IBAN: "+user.bankIban+"<br/>":""}${user.bankSwift?"SWIFT: "+user.bankSwift:""}</div>`:""}
+      <div class="footer">© 2026 feloosk · www.feloosk.com</div></body></html>`);
+    w.document.close();
   };
 
   return <div className="space-y-3">
@@ -778,33 +941,56 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
     <div className="p-3 rounded-xl text-[11px] font-semibold" style={{background:R.id==="EG"?TK.badBg:TK.infoBg,color:R.id==="EG"?TK.bad:TK.info,border:`1px solid ${R.id==="EG"?`${TK.bad}15`:`${TK.info}15`}`}}>
       🏛️ {R.id==="EG"?"ETA: Clearance model • XML/JSON • UUID+QR+UIN(39-char) • GS1/GPC codes • E-Signature • 5yr archival • B2C via POS":"FTA: Tax invoices with TRN • Peppol CTC pilot July 2026 • Mandatory 2027 • 5yr archival"}
     </div>
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-3 gap-2">
+      {[[`${c} ${fmt(totalRevenue)}`,"Total Revenue",TK.accent,TK.accentBg],[`${c} ${fmt(totalPaid)}`,"Paid",TK.ok,TK.okBg],[`${c} ${fmt(totalOutstanding)}`,"Outstanding",TK.warn,TK.warnBg]].map(([v,l,cl,bg],i)=>
+        <div key={i} className="p-3 rounded-xl text-center" style={{background:bg as string,border:`1px solid ${cl}15`}}><p className="text-[9px] font-bold uppercase" style={{color:cl as string}}>{l as string}</p><p className="text-sm font-extrabold mt-0.5" style={{color:TK.text}}>{v as string}</p></div>
+      )}
+    </div>
+    <div className="grid grid-cols-5 gap-2">
       <Card className="p-2.5 text-center cursor-pointer hover:shadow-md transition-all" onClick={()=>setEditVat(!editVat)}>
         <p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>VAT</p>
         {editVat?<div className="flex items-center justify-center gap-0.5 mt-0.5"><input type="number" value={vatPct} onChange={e=>{const v=parseFloat(e.target.value);if(!isNaN(v)&&v>=0&&v<=100)setVatPct(v);}} onClick={e=>e.stopPropagation()} className="w-12 text-center text-base font-black rounded-md outline-none py-0.5" style={{background:TK.muted,border:`1px solid ${TK.accent}`,color:TK.accent}} min={0} max={100} step={0.5}/><span className="text-sm font-black" style={{color:TK.accent}}>%</span></div>
         :<><p className="text-lg font-black" style={{color:TK.accent}}>{vatPct}%</p><p className="text-[7px] font-semibold" style={{color:TK.accent}}>Tap to edit</p></>}
       </Card>
-      {[["Count",`${sinv.length}`,TK.text],["Unpaid",`${sinv.filter(x=>x.s==="unpaid").length}`,TK.warn],["Archive",`${R.arch}yr`,TK.info]].map(([l,v,cl],i)=><Card key={i} className="p-2.5 text-center"><p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>{l as string}</p><p className="text-lg font-black" style={{color:cl as string}}>{v as string}</p></Card>)}
+      {[["Count",`${sinv.length}`,TK.text],["Unpaid",`${sinv.filter(x=>x.s==="unpaid").length}`,TK.warn],["Overdue",`${sinv.filter(x=>x.s==="overdue").length}`,TK.bad],["Archive",`${R.arch}yr`,TK.info]].map(([l,v,cl],i)=><Card key={i} className="p-2.5 text-center"><p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>{l as string}</p><p className="text-lg font-black" style={{color:cl as string}}>{v as string}</p></Card>)}
     </div>
-    {sinv.length===0?<div className="text-center py-10"><p className="text-3xl mb-2">📄</p><p className="text-sm font-semibold" style={{color:TK.textM}}>No invoices yet</p><p className="text-[11px] mt-1" style={{color:TK.textM}}>Create your first invoice to get started</p></div>
-    :<div className="space-y-1.5">{sinv.map((inv,i)=><Card key={i} className="p-3.5 hover:shadow-md transition-all">
+    <div className="flex gap-1 p-1 rounded-xl" style={{background:TK.muted}}>
+      {[["all","All"],["draft","Draft"],["unpaid","Unpaid"],["overdue","Overdue"],["sent","Sent"],["paid","Paid"]].map(([v,l])=>(
+        <button key={v} onClick={()=>setStatusFilter(v)} className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all" style={{background:statusFilter===v?"#fff":"transparent",color:statusFilter===v?TK.text:TK.textM,boxShadow:statusFilter===v?TK.sh:"none"}}>{l}{v!=="all"?` (${sinv.filter(x=>x.s===v).length})`:""}</button>
+      ))}
+    </div>
+    {filteredInv.length===0?<div className="text-center py-10"><p className="text-3xl mb-2">📄</p><p className="text-sm font-semibold" style={{color:TK.textM}}>{statusFilter==="all"?"No invoices yet":`No ${statusFilter} invoices`}</p><p className="text-[11px] mt-1" style={{color:TK.textM}}>{statusFilter==="all"?"Create your first invoice to get started":"Try a different filter"}</p></div>
+    :<div className="space-y-1.5">{filteredInv.map((inv,i)=><Card key={i} className="p-3.5 hover:shadow-md transition-all">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:TK.accentBg}}>📄</div>
-        <div className="flex-1"><p className="text-xs font-semibold" style={{color:TK.text}}>{inv.nm}</p><p className="text-[10px]" style={{color:TK.textM}}>{inv.cu}</p></div>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:inv.s==="overdue"?TK.badBg:TK.accentBg}}>{inv.s==="overdue"?"⚠️":"📄"}</div>
+        <div className="flex-1">
+          <p className="text-xs font-semibold" style={{color:TK.text}}>{inv.nm}</p>
+          <p className="text-[10px]" style={{color:TK.textM}}>{inv.cu} · {inv.date}{inv.dueDate?` · Due: ${inv.dueDate}`:""}</p>
+        </div>
         <div className="text-right"><p className="text-xs font-bold" style={{color:TK.text}}>{c} {fmt(inv.t)}</p><span className="inline-block px-2 py-0.5 rounded-full text-[8px] font-bold uppercase mt-0.5" style={{background:`${sc[inv.s]||TK.textM}12`,color:sc[inv.s]||TK.textM}}>{inv.s}</span></div>
       </div>
-      {inv.s!=="paid"&&<div className="flex items-center gap-1.5 mt-2 pt-2" style={{borderTop:`1px solid ${TK.borderL}`}}>
-        <button onClick={()=>setRemInv(inv)} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.accentBg,color:TK.accent,border:`1px solid ${TK.accent}20`}}>🔔 Send Reminder</button>
-        <button onClick={()=>shareWhatsApp(inv,true,true)} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:"#25D36612",color:"#25D366",border:"1px solid #25D36620"}}>💬 WhatsApp</button>
-        <button onClick={()=>shareEmail(inv,true,true)} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.infoBg,color:TK.info,border:`1px solid ${TK.info}20`}}>📧 Email</button>
-      </div>}
+      <div className="flex items-center gap-1.5 mt-2 pt-2 flex-wrap" style={{borderTop:`1px solid ${TK.borderL}`}}>
+        {inv.s==="draft"&&<button onClick={()=>updateInvStatus(inv.id,"unpaid")} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.infoBg,color:TK.info,border:`1px solid ${TK.info}20`}}>📨 Send</button>}
+        {(inv.s==="unpaid"||inv.s==="overdue"||inv.s==="sent")&&<>
+          <button onClick={()=>updateInvStatus(inv.id,"paid")} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.okBg,color:TK.ok,border:`1px solid ${TK.ok}20`}}>✓ Mark Paid</button>
+          <button onClick={()=>setRemInv(inv)} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.accentBg,color:TK.accent,border:`1px solid ${TK.accent}20`}}>🔔 Remind</button>
+          <button onClick={()=>shareWhatsApp(inv,true,true)} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:"#25D36612",color:"#25D366",border:"1px solid #25D36620"}}>💬</button>
+          <button onClick={()=>shareEmail(inv,true,true)} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.infoBg,color:TK.info,border:`1px solid ${TK.info}20`}}>📧</button>
+        </>}
+        <div className="flex-1"/>
+        {confirmDel===inv.id?<div className="flex items-center gap-1">
+          <span className="text-[9px]" style={{color:TK.bad}}>Delete?</span>
+          <button onClick={()=>deleteInvoice(inv.id)} className="px-2 py-1 rounded text-[9px] font-bold" style={{background:TK.badBg,color:TK.bad}}>Yes</button>
+          <button onClick={()=>setConfirmDel(null)} className="px-2 py-1 rounded text-[9px] font-bold" style={{background:TK.muted,color:TK.textM}}>No</button>
+        </div>:<button onClick={()=>setConfirmDel(inv.id)} className="text-[10px] px-2 py-1 rounded-lg hover:bg-red-50" style={{color:TK.bad}}>🗑</button>}
+      </div>
     </Card>)}</div>}
 
     <Modal open={!!remInv} onClose={()=>{setRemInv(null);setCopied("");}} title="🔔 Payment Reminder">
       {remInv&&<div className="space-y-3">
         <div className="p-3 rounded-xl" style={{background:TK.accentBg}}>
           <div className="flex justify-between items-center"><span className="text-xs font-bold" style={{color:TK.text}}>{remInv.nm}</span><span className="text-xs font-black" style={{color:TK.accent}}>{c} {fmt(remInv.t)}</span></div>
-          <p className="text-[10px] mt-0.5" style={{color:TK.textM}}>Customer: {remInv.cu} · Status: {remInv.s}</p>
+          <p className="text-[10px] mt-0.5" style={{color:TK.textM}}>Customer: {remInv.cu} · Status: {remInv.s}{remInv.dueDate?` · Due: ${remInv.dueDate}`:""}</p>
         </div>
 
         {!hasBankInfo&&!hasPayLink&&<div className="p-3 rounded-xl text-[11px]" style={{background:TK.warnBg,color:TK.warn,border:`1px solid ${TK.warn}20`}}>
@@ -853,28 +1039,47 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
         <strong style={{color:TK.accent}}>{R.n}:</strong> VAT {vatPct}% • {R.fmt} • {R.sig} {R.id==="EG"&&"• GS1 codes • Real-time ETA • UUID+QR"}{R.id==="AE"&&"• TRN required • Peppol CTC"}
       </div>
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <Inp label="Customer" value={iCu} onChange={setICu} options={[{v:"",l:"— Select —"},...cu.map(x=>({v:x.nm,l:x.nm}))]}/>
-        <Inp label={LL.invDate} value="2026-03-16" onChange={()=>{}} type="date"/>
+        <Inp label="Customer" value={iCu} onChange={v=>{setICu(v);const sel=cu.find(x=>x.nm===v);if(sel){setBuyerTin(sel.tin);if(sel.addr)setIAd(sel.addr);}}} options={[{v:"",l:"— Select —"},...cu.map(x=>({v:x.nm,l:`${x.nm}${x.tin?" · TIN: "+x.tin:""}`}))]}/>
+        <Inp label={LL.invDate} value={iDate} onChange={v=>{setIDate(v);}} type="date"/>
         <Inp label={LL.terms} value={iTm} onChange={setITm} options={[{v:"net30",l:LL.net30},{v:"net60",l:LL.net60},{v:"due",l:LL.dueReceipt}]}/>
+        <Inp label="Due Date" value={dueDate} onChange={()=>{}} type="date"/>
         <Inp label={LL.billAddr} value={iAd} onChange={setIAd} placeholder="123 Street, City"/>
+        <Inp label="Currency" value={c} onChange={()=>{}} placeholder={c}/>
       </div>
+      {R.id==="EG"&&<div className="grid grid-cols-2 gap-3 mb-3">
+        <Inp label="Seller TIN (9-digit)" value={sellerTin} onChange={setSellerTin} placeholder="123456789"/>
+        <Inp label="Buyer TIN (9-digit)" value={buyerTin} onChange={setBuyerTin} placeholder="987654321"/>
+      </div>}
       <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{color:TK.textM}}>{LL.items} {R.id==="EG"&&"(GS1 code required)"}</p>
       <div className="rounded-xl overflow-hidden mb-2" style={{border:`1px solid ${TK.border}`}}>
         <div className="grid grid-cols-12 gap-0 p-2 text-[9px] uppercase font-bold tracking-wider" style={{background:TK.muted,color:TK.textM}}>
-          <span className="col-span-4">{LL.itemName}</span><span className="col-span-1 text-center">{LL.qty}</span><span className="col-span-2 text-center">Price</span><span className="col-span-2 text-center">Disc %</span><span className="col-span-2 text-center">{LL.lineTotal}</span><span className="col-span-1"/>
+          <span className="col-span-3">{LL.itemName}</span><span className="col-span-1 text-center">{LL.qty}</span><span className="col-span-2 text-center">Price</span><span className="col-span-1 text-center">Type</span><span className="col-span-2 text-center">Disc</span><span className="col-span-2 text-center">{LL.lineTotal}</span><span className="col-span-1"/>
         </div>
         {its.map((it,i)=><div key={i} className="grid grid-cols-12 gap-1 p-2 items-center" style={{borderTop:`1px solid ${TK.borderL}`}}>
-          <input value={it.n} onChange={e=>upIt(i,"n",e.target.value)} placeholder="Product..." className="col-span-4 p-1.5 rounded-lg text-[11px] outline-none" style={{background:TK.muted,border:`1px solid ${TK.borderL}`,color:TK.text}}/>
+          <input value={it.n} onChange={e=>upIt(i,"n",e.target.value)} placeholder="Product..." className="col-span-3 p-1.5 rounded-lg text-[11px] outline-none" style={{background:TK.muted,border:`1px solid ${TK.borderL}`,color:TK.text}}/>
           <input type="number" value={it.q||""} onChange={e=>upIt(i,"q",e.target.value)} className="col-span-1 p-1.5 rounded-lg text-[11px] text-center outline-none" style={{background:TK.muted,border:`1px solid ${TK.borderL}`,color:TK.text}}/>
           <input type="number" value={it.p||""} onChange={e=>upIt(i,"p",e.target.value)} className="col-span-2 p-1.5 rounded-lg text-[11px] text-center outline-none" style={{background:TK.muted,border:`1px solid ${TK.borderL}`,color:TK.text}}/>
+          <select value={it.dType} onChange={e=>upIt(i,"dType",e.target.value)} className="col-span-1 p-1 rounded-lg text-[9px] outline-none" style={{background:TK.muted,border:`1px solid ${TK.borderL}`,color:TK.textS}}>
+            <option value="pct">%</option><option value="flat">{c}</option>
+          </select>
           <input type="number" value={it.d||""} onChange={e=>upIt(i,"d",e.target.value)} placeholder="0" className="col-span-2 p-1.5 rounded-lg text-[11px] text-center outline-none" style={{background:TK.muted,border:`1px solid ${TK.borderL}`,color:TK.text}}/>
           <p className="col-span-2 text-[11px] font-bold text-center" style={{color:TK.text}}>{c} {fmt(lines[i]?.lt||0)}</p>
           <button onClick={()=>rmIt(i)} className="col-span-1 text-center text-red-400 hover:text-red-600 text-xs">✕</button>
         </div>)}
       </div>
       <button onClick={addIt} className="text-[11px] font-semibold flex items-center gap-1 mb-3" style={{color:TK.accent}}>+ {LL.addLine}</button>
+      {R.id==="EG"&&<div className="flex items-center gap-3 mb-3 p-2.5 rounded-xl" style={{background:TK.warnBg,border:`1px solid ${TK.warn}15`}}>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={whtOn} onChange={e=>setWhtOn(e.target.checked)} className="w-4 h-4 rounded accent-amber-500"/>
+          <span className="text-[11px] font-semibold" style={{color:TK.warn}}>WHT (Withholding Tax)</span>
+        </label>
+        {whtOn&&<select value={whtPct} onChange={e=>setWhtPct(parseFloat(e.target.value))} className="text-[11px] px-2 py-1 rounded-lg outline-none" style={{background:"white",border:`1px solid ${TK.warn}`,color:TK.warn}}>
+          <option value={1}>1% (Goods)</option><option value={3}>3% (Services)</option><option value={5}>5% (Contractors)</option>
+        </select>}
+      </div>}
       <div className="p-3 rounded-xl mb-3 space-y-1.5" style={{background:TK.muted}}>
-        <div className="flex justify-between text-[11px]"><span style={{color:TK.textM}}>{LL.subtotal}</span><span className="font-semibold" style={{color:TK.text}}>{c} {fmt(sub)}</span></div>
+        <div className="flex justify-between text-[11px]"><span style={{color:TK.textM}}>{LL.subtotal}</span><span className="font-semibold" style={{color:TK.text}}>{c} {fmt(sub+discTotal)}</span></div>
+        {discTotal>0&&<div className="flex justify-between text-[11px]"><span style={{color:TK.textM}}>Discount</span><span className="font-semibold" style={{color:TK.bad}}>-{c} {fmt(discTotal)}</span></div>}
         <div className="flex justify-between items-center text-[11px]">
           <span className="flex items-center gap-1.5" style={{color:TK.textM}}>{LL.vat}
             {editVat?<span className="flex items-center gap-1"><input type="number" value={vatPct} onChange={e=>{const v=parseFloat(e.target.value);if(!isNaN(v)&&v>=0&&v<=100)setVatPct(v);}} className="w-14 px-1.5 py-0.5 rounded-md text-[11px] text-center outline-none font-semibold" style={{background:"white",border:`1px solid ${TK.accent}`,color:TK.accent}} min={0} max={100} step={0.5}/><span className="text-[10px]" style={{color:TK.textM}}>%</span><button onClick={()=>setEditVat(false)} className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{color:TK.ok}}>✓</button></span>
@@ -882,13 +1087,16 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
           </span>
           <span className="font-semibold" style={{color:TK.text}}>{c} {fmt(vat)}</span>
         </div>
-        {lines.some(x=>x.d>0)&&<div className="flex justify-between text-[11px]"><span style={{color:TK.textM}}>Discount</span><span className="font-semibold" style={{color:TK.bad}}>-{c} {fmt(lines.reduce((s,x)=>s+x.disc,0))}</span></div>}
+        {whtOn&&<div className="flex justify-between text-[11px]"><span style={{color:TK.warn}}>WHT ({whtPct}%)</span><span className="font-semibold" style={{color:TK.bad}}>-{c} {fmt(wht)}</span></div>}
         <div className="flex justify-between text-sm font-bold pt-1.5" style={{borderTop:`1px solid ${TK.border}`}}><span style={{color:TK.accent}}>{LL.total}</span><span style={{color:TK.accent}}>{c} {fmt(tot)}</span></div>
+        <p className="text-[9px] italic" style={{color:TK.textM}}>{numToWords(tot)} {c}</p>
       </div>
       <Inp label={LL.notes} value={iNo} onChange={setINo} placeholder="Payment terms, bank details..."/>
       <div className="grid grid-cols-4 gap-2 mt-3">
-        {[["👁 Preview",TK.muted,TK.textS],["🖨 Print",TK.muted,TK.textS],["💾 Draft",TK.muted,TK.textS]].map(([l,bg,cl],i)=><button key={i} className="py-2 rounded-xl text-[11px] font-semibold" style={{background:bg as string,color:cl as string,border:`1px solid ${TK.border}`}}>{l as string}</button>)}
-        <button onClick={createInvoice} disabled={saving} className="py-2 rounded-xl text-[11px] font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>{saving?"...":"📨 "+( R.id==="EG"?"Submit ETA":"Send")}</button>
+        <button onClick={previewInvoice} className="py-2 rounded-xl text-[11px] font-semibold" style={{background:TK.muted,color:TK.textS,border:`1px solid ${TK.border}`}}>👁 Preview</button>
+        <button onClick={()=>{previewInvoice();setTimeout(()=>{},300);}} className="py-2 rounded-xl text-[11px] font-semibold" style={{background:TK.muted,color:TK.textS,border:`1px solid ${TK.border}`}}>🖨 Print</button>
+        <button onClick={()=>createInvoice(true)} disabled={saving} className="py-2 rounded-xl text-[11px] font-semibold" style={{background:TK.muted,color:TK.textS,border:`1px solid ${TK.border}`}}>{saving?"...":"💾 Draft"}</button>
+        <button onClick={()=>createInvoice(false)} disabled={saving} className="py-2 rounded-xl text-[11px] font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>{saving?"...":"📨 "+( R.id==="EG"?"Submit ETA":"Send")}</button>
       </div>
     </Modal>
   </div>;
@@ -1231,8 +1439,8 @@ export default function App(){
   const page=()=>{
     if(loading && books.length===0) return <Spinner/>;
     switch(pg){
-      case "dash":return <Dash R={R} books={books} cu={customers}/>;
-      case "cash":return <CashBookPg R={R} books={books} reload={loadData} cu={customers}/>;
+      case "dash":return <Dash R={R} books={books} cu={customers} onNav={setPg}/>;
+      case "cash":return <CashBookPg R={R} books={books} reload={loadData} cu={customers} invoices={invoices}/>;
       case "inv":return <InvPg R={R} cu={customers} invoices={invoices} reload={loadData} user={user}/>;
       case "ai":return <AiPg R={R} books={books} cu={customers}/>;
       case "comp":return <CompPg R={R} books={books}/>;
