@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/feloosak-mobile/"
+title = "Feloosak Mobile"
+version = "1.0.0"
+id = "artifacts/feloosak-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+localPort = 23046
+name = "expo"
+paths = ["/feloosak-mobile/"]
+
+[services.development]
+run = "pnpm --filter @workspace/feloosak-mobile run dev"
+
+[services.env]
+PORT = "23046"
+BASE_PATH = "/feloosak-mobile/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/feloosak-mobile", "run", "build"]
+run = ["pnpm", "--filter", "@workspace/feloosak-mobile", "run", "serve"]

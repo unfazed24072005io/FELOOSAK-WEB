@@ -22,7 +22,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
 │   ├── api-server/         # Express API server
-│   └── feloosak/           # Feloosak finance app (React+Vite)
+│   ├── feloosak/           # Feloosak finance app (React+Vite)
+│   └── feloosak-mobile/    # Feloosak mobile app (Expo React Native)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -116,6 +117,34 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+
+### `artifacts/feloosak-mobile` (`@workspace/feloosak-mobile`)
+
+Feloosak Mobile — Expo React Native app for iOS/Android. Connects to the same Express API backend as the web app.
+
+**Key Features:**
+- 4-tab navigation: Books, Customers, Invoices, Settings
+- Auth flow: Login/Register modal with Feloosak branding
+- Cash Books dashboard with balance summary, business/personal filter, create book
+- Book detail screen with transactions list, add transaction form sheet
+- Customers list with trust ratings, owed/paid balances, add customer form sheet
+- Invoices list with status badges (draft/sent/paid), status advancement
+- Settings with profile card, region switcher (Egypt/UAE), tax compliance badges
+- API client with session cookie management for auth persistence
+- Liquid glass tab bar support for iOS 26+ via NativeTabs
+
+**Design:**
+- Same design tokens as web: bg=#F6F5F0, accent=#C8A630
+- Inter font family (Regular, Medium, SemiBold, Bold)
+- Form sheets for adding transactions, customers, books
+- Region-aware payment modes (EG: Instapay/Fawry/Vodafone Cash, AE: Apple Pay/ENBD)
+
+**Dependencies:** Expo 54, expo-router, React Query, AsyncStorage, expo-blur, expo-glass-effect
+
+**API Connection:**
+- Base URL: `https://${EXPO_PUBLIC_DOMAIN}/api-server/api`
+- Session cookies stored via AsyncStorage for native persistence
+- CORS note: Web preview has cross-origin limitations; native Expo Go works fully
 
 ### `scripts` (`@workspace/scripts`)
 

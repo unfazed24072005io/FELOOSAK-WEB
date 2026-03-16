@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
+import { api } from "./api";
 
 const TK = {
   bg:"#F6F5F0",card:"#FFFFFF",muted:"#FAF9F7",border:"#E8E6E1",borderL:"#F0EDE8",
@@ -76,77 +77,44 @@ const LL: Record<string, string> = {
   transport:"Transport",food:"Food",maintenance:"Maintenance",
   sales:"Sales",services:"Services",other:"Other",
   selectRegion:"Select Your Region",regionNote:"Each region follows different tax & compliance laws",
+  salary:"Salary",freelance:"Freelance",gifts:"Gifts",groceries:"Groceries",dining:"Dining",
+  entertainment:"Entertainment",health:"Health",education:"Education",bills:"Bills",
+  shopping:"Shopping",savings:"Savings",
 };
 
 const CATS=["sales","services","rent","inventory","salaries","utilities","transport","food","maintenance","other"];
 const PERSONAL_CATS=["salary","freelance","gifts","groceries","dining","transport","entertainment","health","education","bills","shopping","savings","other"];
 
 interface TxItem { id: number; ty: string; am: number; cat: string; no: string; dt: string; payMode?: string; proof?: string|null }
-
 interface BookMember { id: number; name: string; email: string; role: "admin"|"editor"|"viewer"; avatar: string }
-
 interface CashBook {
-  id: number;
-  name: string;
-  type: "business" | "personal";
-  icon: string;
-  color: string;
-  tx: TxItem[];
-  createdAt: string;
+  id: number; name: string; type: "business" | "personal";
+  icon: string; color: string; tx: TxItem[]; createdAt: string;
   members: BookMember[];
 }
-
-const DEFAULT_MEMBERS: BookMember[] = [
-  {id:1,name:"Admin (You)",email:"admin@feloosak.com",role:"admin",avatar:"A"},
-];
-
-const DEFAULT_BOOKS: CashBook[] = [
-  {id:1,name:"Main Shop",type:"business",icon:"🏪",color:BOOK_COLORS[0],createdAt:"Jan 2026",members:[...DEFAULT_MEMBERS,{id:2,name:"Ahmed Hassan",email:"ahmed@shop.com",role:"editor",avatar:"AH"},{id:3,name:"Sara Viewer",email:"sara@shop.com",role:"viewer",avatar:"SV"}],tx:[
-    {id:1,ty:"in",am:12500,cat:"sales",no:"Shop daily sales",dt:"Mar 16",payMode:"cash"},
-    {id:2,ty:"out",am:3200,cat:"inventory",no:"Stock purchase",dt:"Mar 16",payMode:"instapay"},
-    {id:3,ty:"in",am:8700,cat:"sales",no:"Wholesale – Ahmed",dt:"Mar 15",payMode:"bank_transfer"},
-    {id:4,ty:"out",am:5000,cat:"rent",no:"March shop rent",dt:"Mar 15",payMode:"cib"},
-    {id:5,ty:"in",am:4500,cat:"services",no:"Delivery fees",dt:"Mar 14",payMode:"fawry"},
-    {id:6,ty:"out",am:1800,cat:"utilities",no:"Electricity bill",dt:"Mar 14",payMode:"fawry"},
-    {id:7,ty:"in",am:15000,cat:"sales",no:"Bulk sale – Mohamed",dt:"Mar 13",payMode:"nbe"},
-    {id:8,ty:"out",am:7500,cat:"salaries",no:"Employee salaries",dt:"Mar 13",payMode:"banque_misr"},
-  ]},
-  {id:2,name:"Online Store",type:"business",icon:"🛒",color:BOOK_COLORS[1],createdAt:"Feb 2026",members:[...DEFAULT_MEMBERS],tx:[
-    {id:9,ty:"in",am:6200,cat:"sales",no:"Online orders",dt:"Mar 12",payMode:"paymob"},
-    {id:10,ty:"out",am:950,cat:"transport",no:"Shipping costs",dt:"Mar 12",payMode:"vodafone_cash"},
-    {id:11,ty:"in",am:3800,cat:"services",no:"Consultation",dt:"Mar 11",payMode:"instapay"},
-    {id:12,ty:"out",am:2400,cat:"maintenance",no:"Website hosting",dt:"Mar 11",payMode:"cib"},
-  ]},
-  {id:3,name:"Freelance Projects",type:"business",icon:"💼",color:BOOK_COLORS[2],createdAt:"Mar 2026",members:[...DEFAULT_MEMBERS],tx:[
-    {id:13,ty:"in",am:9900,cat:"services",no:"Design project – Sara",dt:"Mar 10",payMode:"instapay"},
-    {id:14,ty:"out",am:1200,cat:"utilities",no:"Software licenses",dt:"Mar 9",payMode:"meeza"},
-  ]},
-  {id:4,name:"Personal Wallet",type:"personal",icon:"👛",color:BOOK_COLORS[3],createdAt:"Jan 2026",members:[...DEFAULT_MEMBERS],tx:[
-    {id:15,ty:"in",am:18000,cat:"salary",no:"Monthly salary",dt:"Mar 1",payMode:"nbe"},
-    {id:16,ty:"out",am:4500,cat:"groceries",no:"Weekly groceries",dt:"Mar 15",payMode:"cash"},
-    {id:17,ty:"out",am:2000,cat:"dining",no:"Restaurants",dt:"Mar 14",payMode:"vodafone_cash"},
-    {id:18,ty:"out",am:800,cat:"entertainment",no:"Netflix & Spotify",dt:"Mar 10",payMode:"cib"},
-    {id:19,ty:"out",am:3500,cat:"bills",no:"Phone & Internet",dt:"Mar 5",payMode:"fawry"},
-  ]},
-  {id:5,name:"Savings",type:"personal",icon:"🏦",color:BOOK_COLORS[4],createdAt:"Jan 2026",members:[...DEFAULT_MEMBERS],tx:[
-    {id:20,ty:"in",am:5000,cat:"savings",no:"Monthly savings transfer",dt:"Mar 1",payMode:"cib"},
-    {id:21,ty:"in",am:2500,cat:"freelance",no:"Side gig payment",dt:"Mar 8",payMode:"instapay"},
-  ]},
-];
+interface CustItem { id: number; nm: string; ph: string; ow: number; pd: number; tr: number }
+interface UserData { id: number; email: string; name: string; region: string; avatar: string }
 
 const BOOK_ICONS=["🏪","🛒","💼","🏢","🏭","🚗","🏠","📱","💻","🎯","📦","🔧","👛","🏦","💳","🎓","✈️","🏥","🎭","📚"];
-
-interface CustItem { id: number; nm: string; ph: string; ow: number; pd: number; tr: number }
-
-const CUST: CustItem[] = [
-  {id:1,nm:"Ahmed Hassan",ph:"+201012345678",ow:8700,pd:25000,tr:92},
-  {id:2,nm:"Mohamed Ali",ph:"+201098765432",ow:15000,pd:45000,tr:85},
-  {id:3,nm:"Sara Ibrahim",ph:"+201155544433",ow:3800,pd:12000,tr:95},
-  {id:4,nm:"Khaled Mahmoud",ph:"+201234567890",ow:22000,pd:18000,tr:65},
-  {id:5,nm:"Fatma Youssef",ph:"+201188877766",ow:0,pd:35000,tr:99},
-];
-
 const MO=[{m:"Oct",i:62000,e:41000},{m:"Nov",i:78000,e:52000},{m:"Dec",i:95000,e:61000},{m:"Jan",i:71000,e:48000},{m:"Feb",i:84000,e:55000},{m:"Mar",i:91500,e:21450}];
+
+function mapBookFromApi(b: any): CashBook {
+  return {
+    id: b.id, name: b.name, type: b.type, icon: b.icon, color: b.color,
+    createdAt: b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Mar 2026",
+    tx: (b.tx || []).map((t: any) => ({
+      id: t.id, ty: t.type, am: parseFloat(t.amount), cat: t.category,
+      no: t.note || "", dt: t.date, payMode: t.payMode || "cash", proof: t.proof || null,
+    })),
+    members: (b.members || []).map((m: any) => ({
+      id: m.id, name: m.name, email: m.email, role: m.role, avatar: m.avatar || m.name.charAt(0),
+    })),
+  };
+}
+
+function mapCustomerFromApi(c: any): CustItem {
+  return { id: c.id, nm: c.name, ph: c.phone || "", ow: parseFloat(c.owed) || 0, pd: parseFloat(c.paid) || 0, tr: c.trust || 50 };
+}
 
 const Card = ({children,className="",style={}}: {children: React.ReactNode; className?: string; style?: React.CSSProperties}) => (
   <div className={`rounded-2xl bg-white ${className}`} style={{border:`1px solid ${TK.border}`,boxShadow:TK.sh,...style}}>{children}</div>
@@ -185,6 +153,12 @@ const Inp = ({label,value,onChange,type="text",placeholder,options,prefix,textar
       textarea?<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} className="w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200 resize-none" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}/>:
       <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} className={`w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200 ${prefix?"pl-12":""}`} style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}/>}
     </div>
+  </div>
+);
+
+const Spinner = () => (
+  <div className="flex items-center justify-center py-20">
+    <div className="w-8 h-8 border-3 border-current border-t-transparent rounded-full animate-spin" style={{color:TK.accent}}/>
   </div>
 );
 
@@ -230,12 +204,31 @@ const exportPDF=(book: CashBook, cur: string, reg: RegionKey)=>{
   w.document.close();
 };
 
-const Login = ({onLogin}: {onLogin: () => void}) => {
-  const [em,setEm]=useState("admin@feloosak.com");
-  const [pw,setPw]=useState("••••••••");
+const Login = ({onLogin}: {onLogin: (user: UserData) => void}) => {
+  const [mode,setMode]=useState<"login"|"register">("login");
+  const [em,setEm]=useState("");
+  const [pw,setPw]=useState("");
+  const [nm,setNm]=useState("");
   const [showPw,setShowPw]=useState(false);
   const [ld,setLd]=useState(false);
-  const go=()=>{setLd(true);setTimeout(()=>{setLd(false);onLogin();},700);};
+  const [err,setErr]=useState("");
+
+  const go=async()=>{
+    setLd(true);setErr("");
+    try {
+      if(mode==="register"){
+        if(!nm.trim()){setErr("Name is required");setLd(false);return;}
+        const data = await api.auth.register(em,pw,nm,"EG");
+        onLogin(data.user);
+      } else {
+        const data = await api.auth.login(em,pw);
+        onLogin(data.user);
+      }
+    } catch(e: any) {
+      setErr(e.message || "Login failed");
+    }
+    setLd(false);
+  };
 
   return <div className="min-h-screen flex" style={{background:TK.bg}}>
     <div className="hidden lg:flex lg:w-[44%] flex-col justify-between p-10 relative overflow-hidden" style={{background:"linear-gradient(145deg,#1A1510,#2C2315,#3D2E18)"}}>
@@ -259,29 +252,34 @@ const Login = ({onLogin}: {onLogin: () => void}) => {
           <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:"linear-gradient(135deg,#C8A630,#E8C840)"}}><span className="text-base font-black" style={{color:"#1A1510"}}>ف</span></div>
           <span className="font-bold" style={{color:TK.text}}>Feloosak</span>
         </div>
-        <h1 className="text-xl font-black mb-0.5" style={{color:TK.text}}>Sign in</h1>
-        <p className="text-xs mb-6" style={{color:TK.textM}}>Enter your credentials to continue</p>
+        <h1 className="text-xl font-black mb-0.5" style={{color:TK.text}}>{mode==="login"?"Sign in":"Create account"}</h1>
+        <p className="text-xs mb-6" style={{color:TK.textM}}>{mode==="login"?"Enter your credentials to continue":"Join Feloosak — free forever"}</p>
+        {err&&<div className="p-2.5 rounded-xl mb-3 text-xs font-semibold" style={{background:TK.badBg,color:TK.bad}}>{err}</div>}
+        {mode==="register"&&<Inp label="Full Name" value={nm} onChange={setNm} placeholder="Your name"/>}
         <Inp label="Email" value={em} onChange={setEm} type="email" placeholder="you@company.com"/>
         <div className="mb-3">
           <label className="block text-[10px] font-bold mb-1 uppercase tracking-wider" style={{color:TK.textM}}>Password</label>
           <div className="relative">
-            <input type={showPw?"text":"password"} value={pw} onChange={e=>setPw(e.target.value)} className="w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}/>
+            <input type={showPw?"text":"password"} value={pw} onChange={e=>setPw(e.target.value)} placeholder="Min 6 characters" className="w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}/>
             <button onClick={()=>setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs" style={{color:TK.textM}}>{showPw?"Hide":"Show"}</button>
           </div>
         </div>
-        <div className="flex justify-between items-center mb-5">
+        {mode==="login"&&<div className="flex justify-between items-center mb-5">
           <label className="flex items-center gap-1.5 text-[11px]" style={{color:TK.textS}}><input type="checkbox" defaultChecked className="rounded"/>Remember me</label>
           <button className="text-[11px] font-semibold" style={{color:TK.accent}}>Forgot password?</button>
-        </div>
+        </div>}
         <button onClick={go} disabled={ld} className="w-full py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90 active:scale-[0.98] flex items-center justify-center gap-2"
           style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510",boxShadow:"0 2px 8px #C8A63040"}}>
-          {ld?<div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"/>:<>🔒 Sign In</>}
+          {ld?<div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"/>:<>{mode==="login"?"🔒 Sign In":"✨ Create Account"}</>}
         </button>
         <div className="flex items-center gap-3 my-5"><div className="flex-1 h-px" style={{background:TK.border}}/><span className="text-[10px]" style={{color:TK.textM}}>or</span><div className="flex-1 h-px" style={{background:TK.border}}/></div>
         <div className="grid grid-cols-2 gap-2">
           {["G  Google","🍎 Apple"].map(p=><button key={p} className="py-2 rounded-xl text-xs font-semibold hover:bg-gray-50" style={{border:`1px solid ${TK.border}`,color:TK.text}}>{p}</button>)}
         </div>
-        <p className="text-center text-[11px] mt-5" style={{color:TK.textM}}>No account? <button className="font-bold" style={{color:TK.accent}}>Sign up</button></p>
+        <p className="text-center text-[11px] mt-5" style={{color:TK.textM}}>
+          {mode==="login"?"No account? ":"Already have one? "}
+          <button className="font-bold" style={{color:TK.accent}} onClick={()=>{setMode(mode==="login"?"register":"login");setErr("");}}>{mode==="login"?"Sign up":"Sign in"}</button>
+        </p>
       </div>
     </div>
   </div>;
@@ -366,7 +364,7 @@ const Dash = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
   </div>;
 };
 
-const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; setBooks: React.Dispatch<React.SetStateAction<CashBook[]>>; cu: CustItem[]}) => {
+const CashBookPg = ({R,books,reload,cu}: {R: RegionInfo; books: CashBook[]; reload: () => void; cu: CustItem[]}) => {
   const c=R.cur; const reg=R.id as RegionKey;
   const [bookType,setBookType]=useState<"business"|"personal">("business");
   const [activeBook,setActiveBook]=useState<number|null>(null);
@@ -384,6 +382,7 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
   const [newMemberName,setNewMemberName]=useState("");
   const [newMemberEmail,setNewMemberEmail]=useState("");
   const [newMemberRole,setNewMemberRole]=useState<"editor"|"viewer">("viewer");
+  const [saving,setSaving]=useState(false);
   const proofInputRef=useRef<HTMLInputElement>(null);
 
   const filteredBooks = books.filter(b=>b.type===bookType);
@@ -394,49 +393,57 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
   const totalIn = allTxInType.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);
   const totalOut = allTxInType.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);
 
-  const addTx=()=>{
+  const addTx=async()=>{
     if(!am||isNaN(Number(am))||!currentBook)return;
-    const newTx: TxItem = {id:Date.now(),ty,am:parseFloat(am),cat:ca,no,dt:"Mar 16",payMode,proof:proofFile||null};
-    setBooks(prev=>prev.map(b=>b.id===currentBook.id?{...b,tx:[newTx,...b.tx]}:b));
-    setShowAdd(false);setAm("");setNo("");setPayMode("cash");setProofFile("");
+    setSaving(true);
+    try {
+      await api.transactions.create({
+        bookId: currentBook.id, type: ty, amount: parseFloat(am),
+        category: ca, note: no, date: "Mar 16", payMode, proof: proofFile || null,
+      });
+      reload();
+      setShowAdd(false);setAm("");setNo("");setPayMode("cash");setProofFile("");
+    } catch(e) { console.error(e); }
+    setSaving(false);
   };
 
-  const removeTx=(txId: number)=>{
-    if(!currentBook)return;
-    setBooks(prev=>prev.map(b=>b.id===currentBook.id?{...b,tx:b.tx.filter(t=>t.id!==txId)}:b));
+  const removeTx=async(txId: number)=>{
+    try { await api.transactions.delete(txId); reload(); } catch(e) { console.error(e); }
   };
 
-  const createBook=()=>{
+  const createBook=async()=>{
     if(!newBookName.trim())return;
-    const newBook: CashBook = {
-      id:Date.now(),name:newBookName.trim(),type:bookType,icon:newBookIcon,
-      color:BOOK_COLORS[books.length%BOOK_COLORS.length],tx:[],createdAt:"Mar 2026",
-      members:[...DEFAULT_MEMBERS]
-    };
-    setBooks(prev=>[...prev,newBook]);
-    setShowNewBook(false);setNewBookName("");setNewBookIcon("🏪");
+    setSaving(true);
+    try {
+      await api.books.create({
+        name: newBookName.trim(), type: bookType, icon: newBookIcon,
+        color: BOOK_COLORS[books.length%BOOK_COLORS.length],
+      });
+      reload();
+      setShowNewBook(false);setNewBookName("");setNewBookIcon("🏪");
+    } catch(e) { console.error(e); }
+    setSaving(false);
   };
 
-  const deleteBook=(bookId: number)=>{
-    setBooks(prev=>prev.filter(b=>b.id!==bookId));
-    if(activeBook===bookId)setActiveBook(null);
+  const deleteBook=async(bookId: number)=>{
+    try { await api.books.delete(bookId); if(activeBook===bookId)setActiveBook(null); reload(); } catch(e) { console.error(e); }
   };
 
-  const addMember=()=>{
+  const addMember=async()=>{
     if(!newMemberName.trim()||!newMemberEmail.trim()||!currentBook)return;
-    const m: BookMember={id:Date.now(),name:newMemberName.trim(),email:newMemberEmail.trim(),role:newMemberRole,avatar:newMemberName.trim().split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
-    setBooks(prev=>prev.map(b=>b.id===currentBook.id?{...b,members:[...b.members,m]}:b));
-    setNewMemberName("");setNewMemberEmail("");setNewMemberRole("viewer");
+    try {
+      await api.members.create({ bookId: currentBook.id, name: newMemberName.trim(), email: newMemberEmail.trim(), role: newMemberRole });
+      reload();
+      setNewMemberName("");setNewMemberEmail("");setNewMemberRole("viewer");
+    } catch(e) { console.error(e); }
   };
 
-  const removeMember=(memberId: number)=>{
-    if(!currentBook)return;
-    setBooks(prev=>prev.map(b=>b.id===currentBook.id?{...b,members:b.members.filter(m=>m.id!==memberId)}:b));
+  const removeMember=async(memberId: number)=>{
+    try { await api.members.delete(memberId); reload(); } catch(e) { console.error(e); }
   };
 
-  const updateMemberRole=(memberId: number, role: "admin"|"editor"|"viewer")=>{
-    if(!currentBook)return;
-    setBooks(prev=>prev.map(b=>b.id===currentBook.id?{...b,members:b.members.map(m=>m.id===memberId?{...m,role}:m)}:b));
+  const updateMemberRole=async(memberId: number, role: "admin"|"editor"|"viewer")=>{
+    try { await api.members.update(memberId, { role }); reload(); } catch(e) { console.error(e); }
   };
 
   const handleProofCapture=(e: React.ChangeEvent<HTMLInputElement>)=>{
@@ -516,7 +523,7 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
             <button onClick={()=>setProofFile("")} className="text-red-400 text-xs hover:text-red-600">✕</button>
           </div>}
         </div>
-        <button onClick={addTx} className="w-full py-2.5 rounded-xl text-sm font-bold mt-1" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>{LL.save}</button>
+        <button onClick={addTx} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-bold mt-1" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>{saving?"Saving...":LL.save}</button>
       </Modal>
 
       <Modal open={showMembers} onClose={()=>setShowMembers(false)} title={`👥 Members — ${currentBook.icon} ${currentBook.name}`} wide>
@@ -531,7 +538,7 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
                 <p className="text-xs font-semibold" style={{color:TK.text}}>{m.name}</p>
                 <p className="text-[10px]" style={{color:TK.textM}}>{m.email}</p>
               </div>
-              {m.role==="admin"&&m.id===1?
+              {m.role==="admin"&&currentBook.members.indexOf(m)===0?
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase" style={{background:`${TK.accent}15`,color:TK.accent}}>Owner</span>
               :<>
                 <select value={m.role} onChange={e=>updateMemberRole(m.id,e.target.value as "admin"|"editor"|"viewer")} className="text-[10px] font-semibold px-2 py-1 rounded-lg outline-none" style={{background:"white",border:`1px solid ${TK.border}`,color:roleColors[m.role]}}>
@@ -630,26 +637,49 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
           ?"Business books track sales, inventory, rent, salaries, and other commercial transactions. VAT and compliance rules apply."
           :"Personal books track salary, groceries, bills, entertainment, and other personal expenses. Great for budgeting."}
       </div>
-      <button onClick={createBook} className="w-full py-2.5 rounded-xl text-sm font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>Create Book</button>
+      <button onClick={createBook} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>{saving?"Creating...":"Create Book"}</button>
     </Modal>
   </div>;
 };
 
 interface InvLine { n: string; q: number; p: number; d: number }
 
-const InvPg = ({R,cu}: {R: RegionInfo; cu: CustItem[]}) => {
+const InvPg = ({R,cu,invoices,reload}: {R: RegionInfo; cu: CustItem[]; invoices: any[]; reload: () => void}) => {
   const c=R.cur;
   const [showC,setShowC]=useState(false);
   const [iCu,setICu]=useState("");const [iTm,setITm]=useState("net30");const [iAd,setIAd]=useState("");const [iNo,setINo]=useState("");
   const [its,setIts]=useState<InvLine[]>([{n:"",q:1,p:0,d:0}]);
+  const [saving,setSaving]=useState(false);
   const addIt=()=>setIts(p=>[...p,{n:"",q:1,p:0,d:0}]);
   const upIt=(i: number,f: string,v: string)=>setIts(p=>p.map((x,j)=>j===i?{...x,[f]:f==="n"?v:parseFloat(v)||0}:x));
   const rmIt=(i: number)=>setIts(p=>p.filter((_,j)=>j!==i));
   const lines=its.map(x=>({...x,disc:x.q*x.p*(x.d/100),lt:x.q*x.p*(1-x.d/100)}));
   const sub=lines.reduce((s,x)=>s+x.lt,0);const vat=Math.round(sub*R.vr);const tot=sub+vat;
 
-  const sinv=[{nm:"FEL-001",cu:"Ahmed Hassan",t:Math.round(8700*(1+R.vr)),s:"unpaid"},{nm:"FEL-002",cu:"Mohamed Ali",t:Math.round(15000*(1+R.vr)),s:"unpaid"},{nm:"FEL-003",cu:"Fatma Youssef",t:Math.round(6500*(1+R.vr)),s:"paid"},{nm:"FEL-004",cu:"Sara Ibrahim",t:Math.round(3800*(1+R.vr)),s:"draft"}];
+  const sinv = invoices.map(inv => ({
+    id: inv.id,
+    nm: inv.invoiceNo,
+    cu: inv.customerId ? cu.find(c => c.id === inv.customerId)?.nm || "Unknown" : "Unknown",
+    t: parseFloat(inv.total) || 0,
+    s: inv.status,
+  }));
   const sc: Record<string,string>={paid:TK.ok,unpaid:TK.warn,draft:TK.textM};
+
+  const createInvoice=async()=>{
+    setSaving(true);
+    try {
+      const no = `FEL-${String(invoices.length+1).padStart(3,"0")}`;
+      await api.invoices.create({
+        invoiceNo: no, invoiceDate: "2026-03-16", status: "draft",
+        subtotal: sub, vatAmount: vat, total: tot, terms: iTm,
+        billingAddress: iAd, notes: iNo, items: its,
+        customerId: cu.find(x => x.nm === iCu)?.id || null,
+      });
+      reload();
+      setShowC(false);setIts([{n:"",q:1,p:0,d:0}]);setICu("");setIAd("");setINo("");
+    } catch(e) { console.error(e); }
+    setSaving(false);
+  };
 
   return <div className="space-y-3">
     <div className="flex items-center justify-between flex-wrap gap-2">
@@ -662,11 +692,12 @@ const InvPg = ({R,cu}: {R: RegionInfo; cu: CustItem[]}) => {
       🏛️ {R.id==="EG"?"ETA: Real-time XML/JSON • UUID+QR • GS1 codes • Digital sig • 7yr archival":"FTA: Tax invoices with TRN • Peppol CTC pilot July 2026 • Mandatory 2027 • 5yr archival"}
     </div>
     <div className="grid grid-cols-4 gap-2">{[["VAT",`${(R.vr*100)}%`,TK.accent],["Count",`${sinv.length}`,TK.text],["Unpaid",`${sinv.filter(x=>x.s==="unpaid").length}`,TK.warn],["Archive",`${R.arch}yr`,TK.info]].map(([l,v,cl],i)=><Card key={i} className="p-2.5 text-center"><p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>{l as string}</p><p className="text-lg font-black" style={{color:cl as string}}>{v as string}</p></Card>)}</div>
-    <div className="space-y-1.5">{sinv.map((inv,i)=><Card key={i} className="p-3.5 flex items-center gap-3 hover:shadow-md transition-all cursor-pointer">
+    {sinv.length===0?<div className="text-center py-10"><p className="text-3xl mb-2">📄</p><p className="text-sm font-semibold" style={{color:TK.textM}}>No invoices yet</p><p className="text-[11px] mt-1" style={{color:TK.textM}}>Create your first invoice to get started</p></div>
+    :<div className="space-y-1.5">{sinv.map((inv,i)=><Card key={i} className="p-3.5 flex items-center gap-3 hover:shadow-md transition-all cursor-pointer">
       <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:TK.accentBg}}>📄</div>
       <div className="flex-1"><p className="text-xs font-semibold" style={{color:TK.text}}>{inv.nm}</p><p className="text-[10px]" style={{color:TK.textM}}>{inv.cu}</p></div>
-      <div className="text-right"><p className="text-xs font-bold" style={{color:TK.text}}>{c} {fmt(inv.t)}</p><span className="inline-block px-2 py-0.5 rounded-full text-[8px] font-bold uppercase mt-0.5" style={{background:`${sc[inv.s]}12`,color:sc[inv.s]}}>{inv.s}</span></div>
-    </Card>)}</div>
+      <div className="text-right"><p className="text-xs font-bold" style={{color:TK.text}}>{c} {fmt(inv.t)}</p><span className="inline-block px-2 py-0.5 rounded-full text-[8px] font-bold uppercase mt-0.5" style={{background:`${sc[inv.s]||TK.textM}12`,color:sc[inv.s]||TK.textM}}>{inv.s}</span></div>
+    </Card>)}</div>}
 
     <Modal open={showC} onClose={()=>setShowC(false)} title={`${LL.createInv} — ${R.fl} ${R.auth}`} wide>
       <div className="p-2.5 rounded-xl mb-3 text-[10px]" style={{background:TK.accentBg,border:`1px solid ${TK.accent}20`,color:TK.textS}}>
@@ -702,7 +733,7 @@ const InvPg = ({R,cu}: {R: RegionInfo; cu: CustItem[]}) => {
       <Inp label={LL.notes} value={iNo} onChange={setINo} placeholder="Payment terms, bank details..."/>
       <div className="grid grid-cols-4 gap-2 mt-3">
         {[["👁 Preview",TK.muted,TK.textS],["🖨 Print",TK.muted,TK.textS],["💾 Draft",TK.muted,TK.textS]].map(([l,bg,cl],i)=><button key={i} className="py-2 rounded-xl text-[11px] font-semibold" style={{background:bg as string,color:cl as string,border:`1px solid ${TK.border}`}}>{l as string}</button>)}
-        <button className="py-2 rounded-xl text-[11px] font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>📨 {R.id==="EG"?"Submit ETA":"Send"}</button>
+        <button onClick={createInvoice} disabled={saving} className="py-2 rounded-xl text-[11px] font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>{saving?"...":"📨 "+( R.id==="EG"?"Submit ETA":"Send")}</button>
       </div>
     </Modal>
   </div>;
@@ -728,10 +759,9 @@ const AiPg = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
   const send=(text?: string)=>{
     const q=(text||inp).trim();if(!q)return;setMsgs(p=>[...p,{r:"u",t:q}]);setInp("");setTyp(true);
     setTimeout(()=>{const lo=q.toLowerCase();let r: string;
-
       if(lo.includes("cash flow")||lo.includes("flow")||lo.includes("overview")||lo.includes("summary")){
-        const bestBook=books.reduce((a,b)=>{const bi=b.tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0)-b.tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);const ai=a.tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0)-a.tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);return bi>ai?b:a;});
-        r=`📊 **Cash Flow Summary**\n\nTotal across **${books.length} books**: **${c} ${fmt(bal)}** net\n• Income: **${c} ${fmt(tI)}**\n• Expenses: **${c} ${fmt(tO)}**\n• Cash flow ratio: **${(tI/Math.max(tO,1)*100).toFixed(0)}%**\n\n🏆 Best performing: **${bestBook.icon} ${bestBook.name}**\n\n${bal>0?"✅ Positive cash flow — healthy position.":"⚠️ Negative cash flow — review expenses urgently."}`;
+        const bestBook=books.length>0?books.reduce((a,b)=>{const bi=b.tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0)-b.tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);const ai=a.tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0)-a.tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);return bi>ai?b:a;}):null;
+        r=`📊 **Cash Flow Summary**\n\nTotal across **${books.length} books**: **${c} ${fmt(bal)}** net\n• Income: **${c} ${fmt(tI)}**\n• Expenses: **${c} ${fmt(tO)}**\n• Cash flow ratio: **${(tI/Math.max(tO,1)*100).toFixed(0)}%**\n\n${bestBook?`🏆 Best performing: **${bestBook.icon} ${bestBook.name}**\n\n`:""} ${bal>0?"✅ Positive cash flow — healthy position.":"⚠️ Negative cash flow — review expenses urgently."}`;
       }
       else if(lo.includes("vat")||lo.includes("ضريبة")){
         const oV=Math.round(tI*R.vr);const iV=Math.round(tO*R.vr);const nV=oV-iV;
@@ -743,36 +773,24 @@ const AiPg = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
       }
       else if(lo.includes("overdue")||lo.includes("customer")||lo.includes("owe")||lo.includes("receivable")||lo.includes("عميل")){
         const totalOwed=overdueCustomers.reduce((s,x)=>s+x.ow,0);
-        r=`👥 **Customer Receivables**\n\n${overdueCustomers.length>0?`⚠️ **${overdueCustomers.length} customers** owe **${c} ${fmt(totalOwed)}**:\n\n${overdueCustomers.map(x=>`• **${x.nm}**: ${c} ${fmt(x.ow)} (Trust: ${x.tr}%${x.tr<80?" ⚠️ LOW":""})`).join("\n")}\n\n💡 **Recommendations**:\n${overdueCustomers.filter(x=>x.tr<80).map(x=>`• ${x.nm}: Consider payment plan or advance deposits for future orders`).join("\n")}\n• Send automated reminders via ${R.auth} for compliant collection`:`✅ All customers are clear — no outstanding receivables!\n\n${cu.length} active customers with avg trust score: **${Math.round(cu.reduce((s,x)=>s+x.tr,0)/cu.length)}%**`}`;
+        r=`👥 **Customer Receivables**\n\n${overdueCustomers.length>0?`⚠️ **${overdueCustomers.length} customers** owe **${c} ${fmt(totalOwed)}**:\n\n${overdueCustomers.map(x=>`• **${x.nm}**: ${c} ${fmt(x.ow)} (Trust: ${x.tr}%${x.tr<80?" ⚠️ LOW":""})`).join("\n")}\n\n💡 **Recommendations**:\n${overdueCustomers.filter(x=>x.tr<80).map(x=>`• ${x.nm}: Consider payment plan or advance deposits`).join("\n")}\n• Send automated reminders via ${R.auth}`:`✅ All customers are clear!\n\n${cu.length} active customers with avg trust: **${cu.length>0?Math.round(cu.reduce((s,x)=>s+x.tr,0)/cu.length):0}%**`}`;
       }
       else if(lo.includes("expense")||lo.includes("spending")||lo.includes("cost")||lo.includes("مصاريف")){
-        r=`📉 **Expense Analysis**\n\nTotal expenses: **${c} ${fmt(tO)}**\n\nTop categories:\n${topExpenseCat.slice(0,5).map(([cat,val],i)=>`${i+1}. **${LL[cat]||cat}**: ${c} ${fmt(val)} (${(val/tO*100).toFixed(1)}%)`).join("\n")}\n\n💡 **Insights**:\n${topExpenseCat[0]?`• Largest: **${LL[topExpenseCat[0][0]]||topExpenseCat[0][0]}** at ${(topExpenseCat[0][1]/tO*100).toFixed(0)}% of total`:""}\n• Consider negotiating bulk discounts with top suppliers\n• Review recurring costs quarterly for optimization`;
+        r=`📉 **Expense Analysis**\n\nTotal expenses: **${c} ${fmt(tO)}**\n\nTop categories:\n${topExpenseCat.slice(0,5).map(([cat,val],i)=>`${i+1}. **${LL[cat]||cat}**: ${c} ${fmt(val)} (${(val/tO*100).toFixed(1)}%)`).join("\n")}\n\n💡 **Insights**:\n${topExpenseCat[0]?`• Largest: **${LL[topExpenseCat[0][0]]||topExpenseCat[0][0]}** at ${(topExpenseCat[0][1]/tO*100).toFixed(0)}%`:""}\n• Review recurring costs quarterly`;
       }
-      else if(lo.includes("compare")||lo.includes("book")||lo.includes("entity")||lo.includes("دفتر")){
-        r=`📚 **Cash Book Comparison**\n\n**Business Books** (${bizBooks.length}):\n${bizBooks.map(b=>{const bi=b.tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);const bo=b.tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);return `• ${b.icon} **${b.name}**: Net ${c} ${fmt(bi-bo)} (${b.tx.length} tx)`;}).join("\n")}\n\n**Personal Books** (${perBooks.length}):\n${perBooks.map(b=>{const bi=b.tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);const bo=b.tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);return `• ${b.icon} **${b.name}**: Net ${c} ${fmt(bi-bo)} (${b.tx.length} tx)`;}).join("\n")}\n\n💡 Keep business and personal finances separate for clean tax filing and compliance.`;
+      else if(lo.includes("compare")||lo.includes("book")||lo.includes("entity")){
+        r=`📚 **Cash Book Comparison**\n\n**Business** (${bizBooks.length}):\n${bizBooks.map(b=>{const bi=b.tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);const bo=b.tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);return `• ${b.icon} **${b.name}**: Net ${c} ${fmt(bi-bo)} (${b.tx.length} tx)`;}).join("\n")}\n\n**Personal** (${perBooks.length}):\n${perBooks.map(b=>{const bi=b.tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);const bo=b.tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);return `• ${b.icon} **${b.name}**: Net ${c} ${fmt(bi-bo)} (${b.tx.length} tx)`;}).join("\n")}`;
       }
-      else if(lo.includes("budget")||lo.includes("save")||lo.includes("saving")||lo.includes("ميزانية")){
+      else if(lo.includes("budget")||lo.includes("save")||lo.includes("saving")){
         const savingsRate=bal>0?((bal/tI)*100).toFixed(1):"0";
-        r=`💰 **Budget & Savings Advice**\n\n• Current savings rate: **${savingsRate}%** of income\n• ${parseFloat(savingsRate)>20?"✅ Excellent! Above 20% target.":parseFloat(savingsRate)>10?"⚠️ Fair. Try to reach 20% savings rate.":"❌ Low savings. Review discretionary spending."}\n\n**Recommendations for ${R.n}:**\n• Set aside ${R.id==="EG"?"15-20%":"20-25%"} of monthly revenue as buffer\n• Automate VAT provision: reserve **${(R.vr*100)}%** of sales immediately\n• Emergency fund: maintain 3-6 months of operating costs\n• ${R.id==="EG"?"Consider Treasury Bills (T-Bills) for surplus cash — currently ~22% yield":"Consider UAE savings accounts or Sukuk for surplus — 4-5% yield"}`;
+        r=`💰 **Budget & Savings**\n\n• Savings rate: **${savingsRate}%**\n• ${parseFloat(savingsRate)>20?"✅ Excellent!":parseFloat(savingsRate)>10?"⚠️ Fair. Aim for 20%.":"❌ Low. Review spending."}\n\n**Tips for ${R.n}:**\n• Reserve **${(R.vr*100)}%** for VAT\n• Emergency fund: 3-6 months costs\n• ${R.id==="EG"?"T-Bills ~22% yield":"UAE Sukuk 4-5% yield"}`;
       }
-      else if(lo.includes("invoice")||lo.includes("فاتورة")||lo.includes("billing")){
-        r=`📄 **Invoicing Best Practices (${R.n})**\n\n**${R.auth} Requirements:**\n• Format: ${R.fmt}\n• Signature: ${R.sig}\n• Archival: ${R.arch} years minimum\n${R.id==="EG"?"• GS1 product codes required\n• Real-time submission to ETA\n• UUID + QR code mandatory":"• TRN (Tax Registration Number) required\n• Peppol CTC pilot starting July 2026\n• Full mandate expected 2027"}\n\n**Tips:**\n• Send invoices within 24 hours of delivery\n• Include clear payment terms (Net 30 recommended)\n• Follow up on unpaid invoices at 7, 14, 21 days\n• ${R.id==="EG"?"Use Paymob or Fawry for instant collection":"Offer Apple Pay / Tabby for faster payment"}`;
+      else if(lo.includes("invoice")||lo.includes("فاتورة")){
+        r=`📄 **Invoicing (${R.n})**\n\n**${R.auth} Requirements:**\n• Format: ${R.fmt}\n• Signature: ${R.sig}\n• Archive: ${R.arch} years\n${R.id==="EG"?"• GS1 codes, UUID+QR, real-time ETA":"• TRN required, Peppol CTC pilot July 2026"}\n\n**Tips:**\n• Send within 24h of delivery\n• Follow up at 7, 14, 21 days`;
       }
-      else if(lo.includes("profit")||lo.includes("ربح")){
-        const ct=R.id==="EG"?Math.round(bal*R.ct):Math.round(Math.max(0,bal-R.ctT)*R.ct);
-        const afterTax=bal-ct-Math.round(bal*R.vr);
-        r=`📊 **Profitability Analysis**\n\n• Gross profit: **${c} ${fmt(bal)}**\n• Est. VAT (${(R.vr*100)}%): **${c} ${fmt(Math.round(bal*R.vr))}**\n• Est. Corp Tax: **${c} ${fmt(ct)}**\n• **After-tax profit: ${c} ${fmt(afterTax)}**\n• Profit margin: **${(bal/Math.max(tI,1)*100).toFixed(1)}%**\n\n${bal/tI>0.3?"✅ Strong margins above 30%.":bal/tI>0.15?"⚠️ Moderate margins. Look for cost optimizations.":"❌ Thin margins below 15%. Urgent cost review needed."}`;
+      else {
+        r=`Try asking about:\n• **"Cash flow"** — overview\n• **"VAT breakdown"** — ${R.vl}\n• **"Tax liability"** — corporate tax\n• **"Overdue customers"** — receivables\n• **"Top expenses"** — analysis\n• **"Compare books"** — book comparison\n• **"Budget advice"** — savings tips\n• **"Invoice tips"** — ${R.auth} guide`;
       }
-      else if(lo.includes("hello")||lo.includes("hi")||lo.includes("مرحبا")||lo.includes("اهلا")){
-        r=`Hello! 👋 I'm your Feloosak AI assistant for ${R.n}. Here's what I can help with:\n\n• 💰 **Cash flow** — "What's my cash flow?"\n• 🧾 **VAT** — "VAT breakdown"\n• 🏛️ **Tax** — "Tax liability"\n• 👥 **Customers** — "Overdue customers"\n• 📉 **Expenses** — "Top expenses"\n• 📚 **Books** — "Compare my books"\n• 💰 **Budget** — "Budget advice"\n• 📄 **Invoicing** — "Invoice tips"\n\nJust type your question!`;
-      }
-      else if(lo.includes("help")||lo.includes("مساعدة")||lo.includes("what can")){
-        r=`I can analyze your finances across all **${books.length} cash books** and provide insights on:\n\n🔢 **Numbers**: Cash flow, profit margins, expense ratios\n🧾 **Compliance**: ${R.auth} rules, VAT filing, e-invoice requirements\n📊 **Analysis**: Variance reports, trend detection, anomaly alerts\n👥 **Customers**: Receivable tracking, trust scores, collection tips\n💡 **Advice**: Budget planning, tax optimization, savings strategies\n📄 **Invoicing**: ${R.n}-specific requirements, best practices\n\nTry asking: "What's my cash flow?" or "Compare my books" or "Budget advice"`;
-      }
-      else{
-        r=`I can help with many topics! Try asking about:\n\n• **"Cash flow"** — full financial overview\n• **"VAT breakdown"** — ${R.vl} calculations\n• **"Tax liability"** — corporate tax estimate\n• **"Overdue customers"** — receivable alerts\n• **"Top expenses"** — spending analysis\n• **"Compare my books"** — book-by-book view\n• **"Budget advice"** — savings tips for ${R.n}\n• **"Invoice tips"** — ${R.auth} compliance guide\n• **"Profit"** — profitability analysis`;
-      }
-
       setMsgs(p=>[...p,{r:"ai",t:r}]);setTyp(false);
     },1200);
   };
@@ -796,7 +814,7 @@ const AiPg = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
       </div>
       <div className="p-3 rounded-xl" style={{background:TK.accentBg,border:`1px solid ${TK.accent}20`}}>
         <div className="flex items-start gap-2"><span>⚡</span><div><p className="text-[9px] font-bold" style={{color:TK.accent}}>{LL.aiGen}</p>
-          <p className="text-[11px] mt-1 leading-relaxed" style={{color:TK.textS}}>Salaries up <strong style={{color:TK.bad}}>+10.3%</strong> ({c} 700 increase — new delivery hire). Inventory down 22% — supplier renegotiation successful. Across <strong>{books.length} books</strong>, net position is <strong style={{color:bal>=0?TK.ok:TK.bad}}>{c} {fmt(bal)}</strong>.</p></div></div>
+          <p className="text-[11px] mt-1 leading-relaxed" style={{color:TK.textS}}>Salaries up <strong style={{color:TK.bad}}>+10.3%</strong>. Inventory down 22% — supplier renegotiation successful. Across <strong>{books.length} books</strong>, net position: <strong style={{color:bal>=0?TK.ok:TK.bad}}>{c} {fmt(bal)}</strong>.</p></div></div>
       </div>
     </Card>
     <Card className="p-4">
@@ -812,7 +830,7 @@ const AiPg = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
           <div className="max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed whitespace-pre-line" style={{background:m.r==="u"?TK.accent:TK.muted,color:m.r==="u"?"#1A1510":TK.text,borderBottomRightRadius:m.r==="u"?4:16,borderBottomLeftRadius:m.r==="ai"?4:16}}>
             {m.t.split("**").map((p,j)=>j%2===1?<strong key={j}>{p}</strong>:p)}</div>
         </div>)}
-        {typ&&<div className="flex justify-start"><div className="p-3 rounded-2xl" style={{background:TK.muted}}><div className="flex gap-1 items-center"><div className="flex gap-1">{[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{background:TK.accent,animationDelay:`${i*0.15}s`}}/>)}</div><span className="text-[10px] ml-2" style={{color:TK.textM}}>Analyzing your data...</span></div></div></div>}
+        {typ&&<div className="flex justify-start"><div className="p-3 rounded-2xl" style={{background:TK.muted}}><div className="flex gap-1 items-center"><div className="flex gap-1">{[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{background:TK.accent,animationDelay:`${i*0.15}s`}}/>)}</div><span className="text-[10px] ml-2" style={{color:TK.textM}}>Analyzing...</span></div></div></div>}
       </div>
       <div className="flex gap-2">
         <input value={inp} onChange={e=>setInp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder={LL.askAi} className="flex-1 p-2.5 rounded-xl text-xs outline-none" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}/>
@@ -852,12 +870,19 @@ const CompPg = ({R,books}: {R: RegionInfo; books: CashBook[]}) => {
   </div>;
 };
 
-const SetPg = ({R,setReg,setAuth}: {R: RegionInfo; setReg: (r: RegionKey | null) => void; setAuth: (v: boolean) => void}) => (
-  <div className="space-y-4">
+const SetPg = ({R,user,setReg,onLogout}: {R: RegionInfo; user: UserData; setReg: (r: RegionKey) => void; onLogout: () => void}) => {
+  const handleRegion=async(r: RegionKey)=>{
+    try { await api.auth.updateProfile({ region: r }); setReg(r); } catch(e) { console.error(e); }
+  };
+  return <div className="space-y-4">
     <h1 className="text-lg font-bold" style={{color:TK.text}}>{LL.settings}</h1>
     <Card className="p-4 space-y-4">
+      <div className="flex items-center gap-3 p-3 rounded-xl" style={{background:TK.accentBg}}>
+        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style={{background:`${TK.accent}20`,color:TK.accent}}>{user.avatar || user.name.charAt(0)}</div>
+        <div><p className="text-sm font-bold" style={{color:TK.text}}>{user.name}</p><p className="text-[10px]" style={{color:TK.textM}}>{user.email}</p></div>
+      </div>
       <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:`${TK.accent}12`}}>📍</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>{LL.region}</p><p className="text-[10px]" style={{color:TK.textM}}>{R.fl} {R.n} • {R.auth} • {R.vl}</p></div></div>
-        <div className="flex rounded-xl overflow-hidden" style={{border:`1px solid ${TK.border}`}}>{(["EG","AE"] as RegionKey[]).map(r=><button key={r} onClick={()=>setReg(r)} className="px-3 py-1.5 text-[11px] font-bold" style={{background:R.id===r?TK.accent:"transparent",color:R.id===r?"#fff":TK.textM}}>{RG[r].fl} {r}</button>)}</div>
+        <div className="flex rounded-xl overflow-hidden" style={{border:`1px solid ${TK.border}`}}>{(["EG","AE"] as RegionKey[]).map(r=><button key={r} onClick={()=>handleRegion(r)} className="px-3 py-1.5 text-[11px] font-bold" style={{background:R.id===r?TK.accent:"transparent",color:R.id===r?"#fff":TK.textM}}>{RG[r].fl} {r}</button>)}</div>
       </div>
       <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:`${TK.ok}12`}}>🛡</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>{R.auth}</p><p className="text-[10px]" style={{color:TK.textM}}>{R.fmt} • {R.eM?"Mandatory":"Pilot"}</p></div></div>
         <Badge t={R.eM?"Active":"Pilot"} c={R.eM?TK.ok:TK.warn}/></div>
@@ -867,32 +892,76 @@ const SetPg = ({R,setReg,setAuth}: {R: RegionInfo; setReg: (r: RegionKey | null)
         <div key={i} className="grid grid-cols-3 text-[10px] p-1.5 rounded" style={{background:i%2===0?TK.muted:"transparent"}}>
           <span className="font-bold" style={{color:TK.text}}>{l}</span><span style={{color:R.id==="EG"?TK.accent:TK.textM}}>{eg}</span><span style={{color:R.id==="AE"?TK.accent:TK.textM}}>{ae}</span>
         </div>)}</div></Card>
-    <button onClick={()=>{setAuth(false);setReg(null);}} className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-semibold" style={{color:TK.bad,border:`1px solid ${TK.bad}20`}}>🚪 {LL.logout}</button>
-  </div>
-);
+    <button onClick={onLogout} className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-semibold" style={{color:TK.bad,border:`1px solid ${TK.bad}20`}}>🚪 {LL.logout}</button>
+  </div>;
+};
 
 export default function App(){
-  const [auth,setAuth]=useState(false);
+  const [user,setUser]=useState<UserData|null>(null);
+  const [authChecked,setAuthChecked]=useState(false);
   const [reg,setReg]=useState<RegionKey | null>(null);
   const [pg,setPg]=useState("dash");
   const [sb,setSb]=useState(true);
-  const [books,setBooks]=useState<CashBook[]>(DEFAULT_BOOKS);
+  const [books,setBooks]=useState<CashBook[]>([]);
+  const [customers,setCustomers]=useState<CustItem[]>([]);
+  const [invoices,setInvoices]=useState<any[]>([]);
+  const [loading,setLoading]=useState(false);
 
-  if(!auth) return <Login onLogin={()=>setAuth(true)}/>;
-  if(!reg) return <RegSel onSel={setReg}/>;
+  useEffect(()=>{
+    api.auth.me().then(data=>{
+      setUser(data.user);
+      setReg((data.user.region || "EG") as RegionKey);
+    }).catch(()=>{}).finally(()=>setAuthChecked(true));
+  },[]);
+
+  const loadData=useCallback(async()=>{
+    if(!user) return;
+    setLoading(true);
+    try {
+      const [booksData, custData, invData] = await Promise.all([
+        api.books.list(),
+        api.customers.list(),
+        api.invoices.list(),
+      ]);
+      setBooks(booksData.map(mapBookFromApi));
+      setCustomers(custData.map(mapCustomerFromApi));
+      setInvoices(invData);
+    } catch(e) { console.error(e); }
+    setLoading(false);
+  },[user]);
+
+  useEffect(()=>{if(user) loadData();},[user, loadData]);
+
+  const handleLogin=async(u: UserData)=>{
+    setUser(u);
+    setReg((u.region || "EG") as RegionKey);
+    await api.seed().catch(()=>{});
+  };
+
+  const handleLogout=async()=>{
+    await api.auth.logout().catch(()=>{});
+    setUser(null); setReg(null); setBooks([]); setCustomers([]); setInvoices([]);
+  };
+
+  if(!authChecked) return <div className="min-h-screen flex items-center justify-center" style={{background:TK.bg}}><Spinner/></div>;
+  if(!user) return <Login onLogin={handleLogin}/>;
+  if(!reg) return <RegSel onSel={async(r)=>{setReg(r);try{await api.auth.updateProfile({region:r});}catch(e){}}}/>;
   const R=RG[reg];
 
   const nav=[{id:"dash",i:"📊",l:LL.dashboard},{id:"cash",i:"📒",l:LL.cash},{id:"inv",i:"📄",l:LL.invoices},{id:"ai",i:"⚡",l:LL.ai},{id:"comp",i:"⚖️",l:LL.compliance},{id:"set",i:"⚙️",l:LL.settings}];
 
-  const page=()=>{switch(pg){
-    case "dash":return <Dash R={R} books={books} cu={CUST}/>;
-    case "cash":return <CashBookPg R={R} books={books} setBooks={setBooks} cu={CUST}/>;
-    case "inv":return <InvPg R={R} cu={CUST}/>;
-    case "ai":return <AiPg R={R} books={books} cu={CUST}/>;
-    case "comp":return <CompPg R={R} books={books}/>;
-    case "set":return <SetPg R={R} setReg={setReg} setAuth={setAuth}/>;
-    default:return null;
-  }};
+  const page=()=>{
+    if(loading && books.length===0) return <Spinner/>;
+    switch(pg){
+      case "dash":return <Dash R={R} books={books} cu={customers}/>;
+      case "cash":return <CashBookPg R={R} books={books} reload={loadData} cu={customers}/>;
+      case "inv":return <InvPg R={R} cu={customers} invoices={invoices} reload={loadData}/>;
+      case "ai":return <AiPg R={R} books={books} cu={customers}/>;
+      case "comp":return <CompPg R={R} books={books}/>;
+      case "set":return <SetPg R={R} user={user} setReg={setReg} onLogout={handleLogout}/>;
+      default:return null;
+    }
+  };
 
   return <div className="flex h-screen overflow-hidden" style={{background:TK.bg,fontFamily:"'DM Sans',system-ui,sans-serif"}}>
     <aside className={`${sb?"w-52":"w-14"} transition-all duration-300 flex flex-col bg-white border-r shrink-0`} style={{borderColor:TK.border}}>
@@ -913,7 +982,7 @@ export default function App(){
         </div>
         <div className="flex items-center gap-2">
           <span className="relative cursor-pointer">🔔<span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full" style={{background:TK.bad}}/></span>
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold" style={{background:TK.accentBg,color:TK.accent}}>A</div>
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold" style={{background:TK.accentBg,color:TK.accent}}>{user.avatar||user.name.charAt(0)}</div>
         </div>
       </header>
       <div className="flex-1 overflow-y-auto p-5">{page()}</div>
