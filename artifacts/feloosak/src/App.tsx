@@ -158,8 +158,8 @@ function mapCustomerFromApi(c: any): CustItem {
   return { id: c.id, nm: c.name, ph: c.phone || "", ow: parseFloat(c.owed) || 0, pd: parseFloat(c.paid) || 0, tr: c.trust || 50 };
 }
 
-const Card = ({children,className="",style={}}: {children: React.ReactNode; className?: string; style?: React.CSSProperties}) => (
-  <div className={`rounded-2xl bg-white ${className}`} style={{border:`1px solid ${TK.border}`,boxShadow:TK.sh,...style}}>{children}</div>
+const Card = ({children,className="",style={},onClick}: {children: React.ReactNode; className?: string; style?: React.CSSProperties; onClick?: () => void}) => (
+  <div className={`rounded-2xl bg-white ${className}`} style={{border:`1px solid ${TK.border}`,boxShadow:TK.sh,...style}} onClick={onClick}>{children}</div>
 );
 
 const Badge = ({t,c=TK.ok}: {t: string; c?: string}) => (
@@ -338,7 +338,7 @@ const RegSel = ({onSel}: {onSel: (r: RegionKey) => void}) => (
             <p className="text-base font-bold" style={{color:TK.text}}>{r.n}</p>
             <p className="text-sm font-medium" style={{color:TK.accent}}>{r.ar}</p>
             <div className="mt-3 space-y-1">
-              {[["VAT",`${(r.vr*100)}%`],["E-Invoice",r.auth],["Currency",r.cur],["Corp Tax",r.id==="AE"?`0%→9% (AED 375K)`:`${(r.ct*100)}%`]].map(([k,v])=>(
+              {[["VAT",`${Math.round(r.vr*100)}%`],["E-Invoice",r.auth],["Currency",r.cur],["Corp Tax",r.id==="AE"?`0%→9% (AED 375K)`:`${Math.round(r.ct*100)}%`]].map(([k,v])=>(
                 <div key={k} className="flex justify-between text-[11px]"><span style={{color:TK.textM}}>{k}</span><span className="font-bold" style={{color:TK.text}}>{v}</span></div>
               ))}
             </div>
@@ -692,11 +692,13 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
   const [saving,setSaving]=useState(false);
   const [remInv,setRemInv]=useState<any|null>(null);
   const [copied,setCopied]=useState("");
+  const [vatPct,setVatPct]=useState(Math.round(R.vr*100));
+  const [editVat,setEditVat]=useState(false);
   const addIt=()=>setIts(p=>[...p,{n:"",q:1,p:0,d:0}]);
   const upIt=(i: number,f: string,v: string)=>setIts(p=>p.map((x,j)=>j===i?{...x,[f]:f==="n"?v:parseFloat(v)||0}:x));
   const rmIt=(i: number)=>setIts(p=>p.filter((_,j)=>j!==i));
   const lines=its.map(x=>({...x,disc:x.q*x.p*(x.d/100),lt:x.q*x.p*(1-x.d/100)}));
-  const sub=lines.reduce((s,x)=>s+x.lt,0);const vat=Math.round(sub*R.vr);const tot=sub+vat;
+  const sub=lines.reduce((s,x)=>s+x.lt,0);const vat=Math.round(sub*(vatPct/100));const tot=sub+vat;
 
   const sinv = invoices.map(inv => ({
     id: inv.id,
@@ -776,7 +778,14 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
     <div className="p-3 rounded-xl text-[11px] font-semibold" style={{background:R.id==="EG"?TK.badBg:TK.infoBg,color:R.id==="EG"?TK.bad:TK.info,border:`1px solid ${R.id==="EG"?`${TK.bad}15`:`${TK.info}15`}`}}>
       🏛️ {R.id==="EG"?"ETA: Clearance model • XML/JSON • UUID+QR+UIN(39-char) • GS1/GPC codes • E-Signature • 5yr archival • B2C via POS":"FTA: Tax invoices with TRN • Peppol CTC pilot July 2026 • Mandatory 2027 • 5yr archival"}
     </div>
-    <div className="grid grid-cols-4 gap-2">{[["VAT",`${(R.vr*100)}%`,TK.accent],["Count",`${sinv.length}`,TK.text],["Unpaid",`${sinv.filter(x=>x.s==="unpaid").length}`,TK.warn],["Archive",`${R.arch}yr`,TK.info]].map(([l,v,cl],i)=><Card key={i} className="p-2.5 text-center"><p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>{l as string}</p><p className="text-lg font-black" style={{color:cl as string}}>{v as string}</p></Card>)}</div>
+    <div className="grid grid-cols-4 gap-2">
+      <Card className="p-2.5 text-center cursor-pointer hover:shadow-md transition-all" onClick={()=>setEditVat(!editVat)}>
+        <p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>VAT</p>
+        {editVat?<div className="flex items-center justify-center gap-0.5 mt-0.5"><input type="number" value={vatPct} onChange={e=>{const v=parseFloat(e.target.value);if(!isNaN(v)&&v>=0&&v<=100)setVatPct(v);}} onClick={e=>e.stopPropagation()} className="w-12 text-center text-base font-black rounded-md outline-none py-0.5" style={{background:TK.muted,border:`1px solid ${TK.accent}`,color:TK.accent}} min={0} max={100} step={0.5}/><span className="text-sm font-black" style={{color:TK.accent}}>%</span></div>
+        :<><p className="text-lg font-black" style={{color:TK.accent}}>{vatPct}%</p><p className="text-[7px] font-semibold" style={{color:TK.accent}}>Tap to edit</p></>}
+      </Card>
+      {[["Count",`${sinv.length}`,TK.text],["Unpaid",`${sinv.filter(x=>x.s==="unpaid").length}`,TK.warn],["Archive",`${R.arch}yr`,TK.info]].map(([l,v,cl],i)=><Card key={i} className="p-2.5 text-center"><p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>{l as string}</p><p className="text-lg font-black" style={{color:cl as string}}>{v as string}</p></Card>)}
+    </div>
     {sinv.length===0?<div className="text-center py-10"><p className="text-3xl mb-2">📄</p><p className="text-sm font-semibold" style={{color:TK.textM}}>No invoices yet</p><p className="text-[11px] mt-1" style={{color:TK.textM}}>Create your first invoice to get started</p></div>
     :<div className="space-y-1.5">{sinv.map((inv,i)=><Card key={i} className="p-3.5 hover:shadow-md transition-all">
       <div className="flex items-center gap-3">
@@ -841,7 +850,7 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
 
     <Modal open={showC} onClose={()=>setShowC(false)} title={`${LL.createInv} — ${R.fl} ${R.auth}`} wide>
       <div className="p-2.5 rounded-xl mb-3 text-[10px]" style={{background:TK.accentBg,border:`1px solid ${TK.accent}20`,color:TK.textS}}>
-        <strong style={{color:TK.accent}}>{R.n}:</strong> VAT {(R.vr*100)}% • {R.fmt} • {R.sig} {R.id==="EG"&&"• GS1 codes • Real-time ETA • UUID+QR"}{R.id==="AE"&&"• TRN required • Peppol CTC"}
+        <strong style={{color:TK.accent}}>{R.n}:</strong> VAT {vatPct}% • {R.fmt} • {R.sig} {R.id==="EG"&&"• GS1 codes • Real-time ETA • UUID+QR"}{R.id==="AE"&&"• TRN required • Peppol CTC"}
       </div>
       <div className="grid grid-cols-2 gap-3 mb-3">
         <Inp label="Customer" value={iCu} onChange={setICu} options={[{v:"",l:"— Select —"},...cu.map(x=>({v:x.nm,l:x.nm}))]}/>
@@ -866,7 +875,13 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
       <button onClick={addIt} className="text-[11px] font-semibold flex items-center gap-1 mb-3" style={{color:TK.accent}}>+ {LL.addLine}</button>
       <div className="p-3 rounded-xl mb-3 space-y-1.5" style={{background:TK.muted}}>
         <div className="flex justify-between text-[11px]"><span style={{color:TK.textM}}>{LL.subtotal}</span><span className="font-semibold" style={{color:TK.text}}>{c} {fmt(sub)}</span></div>
-        <div className="flex justify-between text-[11px]"><span style={{color:TK.textM}}>{LL.vat} ({(R.vr*100)}%)</span><span className="font-semibold" style={{color:TK.text}}>{c} {fmt(vat)}</span></div>
+        <div className="flex justify-between items-center text-[11px]">
+          <span className="flex items-center gap-1.5" style={{color:TK.textM}}>{LL.vat}
+            {editVat?<span className="flex items-center gap-1"><input type="number" value={vatPct} onChange={e=>{const v=parseFloat(e.target.value);if(!isNaN(v)&&v>=0&&v<=100)setVatPct(v);}} className="w-14 px-1.5 py-0.5 rounded-md text-[11px] text-center outline-none font-semibold" style={{background:"white",border:`1px solid ${TK.accent}`,color:TK.accent}} min={0} max={100} step={0.5}/><span className="text-[10px]" style={{color:TK.textM}}>%</span><button onClick={()=>setEditVat(false)} className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{color:TK.ok}}>✓</button></span>
+            :<span className="flex items-center gap-1">({vatPct}%)<button onClick={()=>setEditVat(true)} className="text-[9px] font-semibold px-1.5 py-0.5 rounded hover:bg-white" style={{color:TK.accent}}>Edit</button></span>}
+          </span>
+          <span className="font-semibold" style={{color:TK.text}}>{c} {fmt(vat)}</span>
+        </div>
         {lines.some(x=>x.d>0)&&<div className="flex justify-between text-[11px]"><span style={{color:TK.textM}}>Discount</span><span className="font-semibold" style={{color:TK.bad}}>-{c} {fmt(lines.reduce((s,x)=>s+x.disc,0))}</span></div>}
         <div className="flex justify-between text-sm font-bold pt-1.5" style={{borderTop:`1px solid ${TK.border}`}}><span style={{color:TK.accent}}>{LL.total}</span><span style={{color:TK.accent}}>{c} {fmt(tot)}</span></div>
       </div>
@@ -928,7 +943,7 @@ const AiPg = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
       }
       else if(lo.includes("budget")||lo.includes("save")||lo.includes("saving")){
         const savingsRate=bal>0?((bal/tI)*100).toFixed(1):"0";
-        r=`💰 **Budget & Savings**\n\n• Savings rate: **${savingsRate}%**\n• ${parseFloat(savingsRate)>20?"✅ Excellent!":parseFloat(savingsRate)>10?"⚠️ Fair. Aim for 20%.":"❌ Low. Review spending."}\n\n**Tips for ${R.n}:**\n• Reserve **${(R.vr*100)}%** for VAT\n• Emergency fund: 3-6 months costs\n• ${R.id==="EG"?"T-Bills ~22% yield":"UAE Sukuk 4-5% yield"}`;
+        r=`💰 **Budget & Savings**\n\n• Savings rate: **${savingsRate}%**\n• ${parseFloat(savingsRate)>20?"✅ Excellent!":parseFloat(savingsRate)>10?"⚠️ Fair. Aim for 20%.":"❌ Low. Review spending."}\n\n**Tips for ${R.n}:**\n• Reserve **${Math.round(R.vr*100)}%** for VAT\n• Emergency fund: 3-6 months costs\n• ${R.id==="EG"?"T-Bills ~22% yield":"UAE Sukuk 4-5% yield"}`;
       }
       else if(lo.includes("invoice")||lo.includes("فاتورة")){
         r=`📄 **Invoicing (${R.n})**\n\n**${R.auth} Requirements:**\n• Format: ${R.fmt}\n• Signature: ${R.sig}\n• Archive: ${R.arch} years\n${R.id==="EG"?"• Clearance model: invoice validated by ETA before reaching buyer\n• Mandatory fields: UUID, Seller/Buyer TIN, UIN (39-char), GS1/GPC item codes, QR code\n• Paper invoices NOT accepted for tax deductions\n• B2C: E-Receipts via POS integration mandatory":"• TRN required, Peppol CTC pilot July 2026"}\n\n**Tips:**\n• Send within 24h of delivery\n• Follow up at 7, 14, 21 days\n${R.id==="EG"?"• Validate buyer TIN + UIN before submission\n• Map all items to GS1/GPC codes":""}`;
