@@ -35,6 +35,22 @@ const RG: Record<RegionKey, RegionInfo> = {
     v26:[{t:"Reverse Charge Simplified",d:"No self-invoices. Retain supplier docs."},{t:"5-Year Refund Deadline",d:"Unclaimed VAT expires after 5 years."},{t:"Anti-Evasion",d:"FTA can deny input VAT linked to evasion."},{t:"Supplier Due Diligence",d:"Verify suppliers before claiming input VAT."}]},
 };
 
+const PAY_MODES: Record<RegionKey, {g: string; opts: {v: string; l: string}[]}[]> = {
+  EG:[
+    {g:"Digital Wallets",opts:[{v:"fawry",l:"Fawry"},{v:"vodafone_cash",l:"Vodafone Cash"},{v:"instapay",l:"InstaPay"},{v:"paymob",l:"Paymob"},{v:"meeza",l:"Meeza"},{v:"orange_cash",l:"Orange Cash"},{v:"etisalat_cash",l:"Etisalat Cash"},{v:"bm_wallet",l:"BM Wallet"}]},
+    {g:"Banks",opts:[{v:"cib",l:"CIB"},{v:"nbe",l:"National Bank of Egypt (NBE)"},{v:"banque_misr",l:"Banque Misr"},{v:"qnb",l:"QNB Al Ahli"},{v:"hsbc_eg",l:"HSBC Egypt"},{v:"aaib",l:"Arab African Intl Bank"},{v:"alex_bank",l:"Bank of Alexandria"},{v:"credit_agricole",l:"Crédit Agricole Egypt"},{v:"abu_dhabi_islamic",l:"Abu Dhabi Islamic Bank EG"},{v:"arab_bank",l:"Arab Bank"},{v:"ahli_united",l:"Ahli United Bank"},{v:"faisal_islamic",l:"Faisal Islamic Bank"},{v:"suez_canal_bank",l:"Suez Canal Bank"},{v:"egyptian_gulf",l:"Egyptian Gulf Bank"},{v:"export_dev",l:"Export Development Bank"}]},
+    {g:"Other",opts:[{v:"cash",l:"💵 Cash"},{v:"check",l:"Check / Cheque"},{v:"pos",l:"POS Terminal"},{v:"bank_transfer",l:"Bank Transfer (Wire)"}]},
+  ],
+  AE:[
+    {g:"Digital Wallets",opts:[{v:"apple_pay",l:"Apple Pay"},{v:"google_pay",l:"Google Pay"},{v:"samsung_pay",l:"Samsung Pay"},{v:"tabby",l:"Tabby"},{v:"tamara",l:"Tamara"},{v:"paytabs",l:"PayTabs"},{v:"noon_pay",l:"Noon Payments"},{v:"payit",l:"Payit (FAB)"}]},
+    {g:"Banks",opts:[{v:"enbd",l:"Emirates NBD"},{v:"adcb",l:"ADCB"},{v:"fab",l:"First Abu Dhabi Bank (FAB)"},{v:"mashreq",l:"Mashreq Bank"},{v:"dib",l:"Dubai Islamic Bank"},{v:"rakbank",l:"RAKBank"},{v:"cbd",l:"Commercial Bank of Dubai"},{v:"ajman_bank",l:"Ajman Bank"},{v:"nbd",l:"National Bank of Dubai"},{v:"adib",l:"Abu Dhabi Islamic Bank"}]},
+    {g:"Other",opts:[{v:"cash",l:"💵 Cash"},{v:"check",l:"Check / Cheque"},{v:"pos",l:"POS Terminal"},{v:"bank_transfer",l:"Bank Transfer (Wire)"}]},
+  ],
+};
+
+const flatPayModes=(reg: RegionKey)=>PAY_MODES[reg].flatMap(g=>g.opts);
+const payLabel=(reg: RegionKey, v: string)=>flatPayModes(reg).find(o=>o.v===v)?.l||v;
+
 const LL: Record<string, string> = {
   dashboard:"Dashboard",cash:"Cash Book",invoices:"Invoices",ai:"AI Insights",
   compliance:"Compliance",settings:"Settings",welcome:"Welcome back",
@@ -65,7 +81,9 @@ const LL: Record<string, string> = {
 const CATS=["sales","services","rent","inventory","salaries","utilities","transport","food","maintenance","other"];
 const PERSONAL_CATS=["salary","freelance","gifts","groceries","dining","transport","entertainment","health","education","bills","shopping","savings","other"];
 
-interface TxItem { id: number; ty: string; am: number; cat: string; no: string; dt: string }
+interface TxItem { id: number; ty: string; am: number; cat: string; no: string; dt: string; payMode?: string; proof?: string|null }
+
+interface BookMember { id: number; name: string; email: string; role: "admin"|"editor"|"viewer"; avatar: string }
 
 interface CashBook {
   id: number;
@@ -75,39 +93,44 @@ interface CashBook {
   color: string;
   tx: TxItem[];
   createdAt: string;
+  members: BookMember[];
 }
 
+const DEFAULT_MEMBERS: BookMember[] = [
+  {id:1,name:"Admin (You)",email:"admin@feloosak.com",role:"admin",avatar:"A"},
+];
+
 const DEFAULT_BOOKS: CashBook[] = [
-  {id:1,name:"Main Shop",type:"business",icon:"🏪",color:BOOK_COLORS[0],createdAt:"Jan 2026",tx:[
-    {id:1,ty:"in",am:12500,cat:"sales",no:"Shop daily sales",dt:"Mar 16"},
-    {id:2,ty:"out",am:3200,cat:"inventory",no:"Stock purchase",dt:"Mar 16"},
-    {id:3,ty:"in",am:8700,cat:"sales",no:"Wholesale – Ahmed",dt:"Mar 15"},
-    {id:4,ty:"out",am:5000,cat:"rent",no:"March shop rent",dt:"Mar 15"},
-    {id:5,ty:"in",am:4500,cat:"services",no:"Delivery fees",dt:"Mar 14"},
-    {id:6,ty:"out",am:1800,cat:"utilities",no:"Electricity bill",dt:"Mar 14"},
-    {id:7,ty:"in",am:15000,cat:"sales",no:"Bulk sale – Mohamed",dt:"Mar 13"},
-    {id:8,ty:"out",am:7500,cat:"salaries",no:"Employee salaries",dt:"Mar 13"},
+  {id:1,name:"Main Shop",type:"business",icon:"🏪",color:BOOK_COLORS[0],createdAt:"Jan 2026",members:[...DEFAULT_MEMBERS,{id:2,name:"Ahmed Hassan",email:"ahmed@shop.com",role:"editor",avatar:"AH"},{id:3,name:"Sara Viewer",email:"sara@shop.com",role:"viewer",avatar:"SV"}],tx:[
+    {id:1,ty:"in",am:12500,cat:"sales",no:"Shop daily sales",dt:"Mar 16",payMode:"cash"},
+    {id:2,ty:"out",am:3200,cat:"inventory",no:"Stock purchase",dt:"Mar 16",payMode:"instapay"},
+    {id:3,ty:"in",am:8700,cat:"sales",no:"Wholesale – Ahmed",dt:"Mar 15",payMode:"bank_transfer"},
+    {id:4,ty:"out",am:5000,cat:"rent",no:"March shop rent",dt:"Mar 15",payMode:"cib"},
+    {id:5,ty:"in",am:4500,cat:"services",no:"Delivery fees",dt:"Mar 14",payMode:"fawry"},
+    {id:6,ty:"out",am:1800,cat:"utilities",no:"Electricity bill",dt:"Mar 14",payMode:"fawry"},
+    {id:7,ty:"in",am:15000,cat:"sales",no:"Bulk sale – Mohamed",dt:"Mar 13",payMode:"nbe"},
+    {id:8,ty:"out",am:7500,cat:"salaries",no:"Employee salaries",dt:"Mar 13",payMode:"banque_misr"},
   ]},
-  {id:2,name:"Online Store",type:"business",icon:"🛒",color:BOOK_COLORS[1],createdAt:"Feb 2026",tx:[
-    {id:9,ty:"in",am:6200,cat:"sales",no:"Online orders",dt:"Mar 12"},
-    {id:10,ty:"out",am:950,cat:"transport",no:"Shipping costs",dt:"Mar 12"},
-    {id:11,ty:"in",am:3800,cat:"services",no:"Consultation",dt:"Mar 11"},
-    {id:12,ty:"out",am:2400,cat:"maintenance",no:"Website hosting",dt:"Mar 11"},
+  {id:2,name:"Online Store",type:"business",icon:"🛒",color:BOOK_COLORS[1],createdAt:"Feb 2026",members:[...DEFAULT_MEMBERS],tx:[
+    {id:9,ty:"in",am:6200,cat:"sales",no:"Online orders",dt:"Mar 12",payMode:"paymob"},
+    {id:10,ty:"out",am:950,cat:"transport",no:"Shipping costs",dt:"Mar 12",payMode:"vodafone_cash"},
+    {id:11,ty:"in",am:3800,cat:"services",no:"Consultation",dt:"Mar 11",payMode:"instapay"},
+    {id:12,ty:"out",am:2400,cat:"maintenance",no:"Website hosting",dt:"Mar 11",payMode:"cib"},
   ]},
-  {id:3,name:"Freelance Projects",type:"business",icon:"💼",color:BOOK_COLORS[2],createdAt:"Mar 2026",tx:[
-    {id:13,ty:"in",am:9900,cat:"services",no:"Design project – Sara",dt:"Mar 10"},
-    {id:14,ty:"out",am:1200,cat:"utilities",no:"Software licenses",dt:"Mar 9"},
+  {id:3,name:"Freelance Projects",type:"business",icon:"💼",color:BOOK_COLORS[2],createdAt:"Mar 2026",members:[...DEFAULT_MEMBERS],tx:[
+    {id:13,ty:"in",am:9900,cat:"services",no:"Design project – Sara",dt:"Mar 10",payMode:"instapay"},
+    {id:14,ty:"out",am:1200,cat:"utilities",no:"Software licenses",dt:"Mar 9",payMode:"meeza"},
   ]},
-  {id:4,name:"Personal Wallet",type:"personal",icon:"👛",color:BOOK_COLORS[3],createdAt:"Jan 2026",tx:[
-    {id:15,ty:"in",am:18000,cat:"salary",no:"Monthly salary",dt:"Mar 1"},
-    {id:16,ty:"out",am:4500,cat:"groceries",no:"Weekly groceries",dt:"Mar 15"},
-    {id:17,ty:"out",am:2000,cat:"dining",no:"Restaurants",dt:"Mar 14"},
-    {id:18,ty:"out",am:800,cat:"entertainment",no:"Netflix & Spotify",dt:"Mar 10"},
-    {id:19,ty:"out",am:3500,cat:"bills",no:"Phone & Internet",dt:"Mar 5"},
+  {id:4,name:"Personal Wallet",type:"personal",icon:"👛",color:BOOK_COLORS[3],createdAt:"Jan 2026",members:[...DEFAULT_MEMBERS],tx:[
+    {id:15,ty:"in",am:18000,cat:"salary",no:"Monthly salary",dt:"Mar 1",payMode:"nbe"},
+    {id:16,ty:"out",am:4500,cat:"groceries",no:"Weekly groceries",dt:"Mar 15",payMode:"cash"},
+    {id:17,ty:"out",am:2000,cat:"dining",no:"Restaurants",dt:"Mar 14",payMode:"vodafone_cash"},
+    {id:18,ty:"out",am:800,cat:"entertainment",no:"Netflix & Spotify",dt:"Mar 10",payMode:"cib"},
+    {id:19,ty:"out",am:3500,cat:"bills",no:"Phone & Internet",dt:"Mar 5",payMode:"fawry"},
   ]},
-  {id:5,name:"Savings",type:"personal",icon:"🏦",color:BOOK_COLORS[4],createdAt:"Jan 2026",tx:[
-    {id:20,ty:"in",am:5000,cat:"savings",no:"Monthly savings transfer",dt:"Mar 1"},
-    {id:21,ty:"in",am:2500,cat:"freelance",no:"Side gig payment",dt:"Mar 8"},
+  {id:5,name:"Savings",type:"personal",icon:"🏦",color:BOOK_COLORS[4],createdAt:"Jan 2026",members:[...DEFAULT_MEMBERS],tx:[
+    {id:20,ty:"in",am:5000,cat:"savings",no:"Monthly savings transfer",dt:"Mar 1",payMode:"cib"},
+    {id:21,ty:"in",am:2500,cat:"freelance",no:"Side gig payment",dt:"Mar 8",payMode:"instapay"},
   ]},
 ];
 
@@ -147,12 +170,16 @@ const Modal = ({open,onClose,title,wide,children}: {open: boolean; onClose: () =
   </div>;
 };
 
-const Inp = ({label,value,onChange,type="text",placeholder,options,prefix,textarea}: {label?: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; options?: {v: string; l: string}[]; prefix?: string; textarea?: boolean}) => (
+const Inp = ({label,value,onChange,type="text",placeholder,options,prefix,textarea,groupedOptions}: {label?: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; options?: {v: string; l: string}[]; prefix?: string; textarea?: boolean; groupedOptions?: {g: string; opts: {v: string; l: string}[]}[]}) => (
   <div className="mb-3">
     {label&&<label className="block text-[10px] font-bold mb-1 uppercase tracking-wider" style={{color:TK.textM}}>{label}</label>}
     <div className="relative">
       {prefix&&<span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold" style={{color:TK.textM}}>{prefix}</span>}
-      {options?<select value={value} onChange={e=>onChange(e.target.value)} className="w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}>
+      {groupedOptions?<select value={value} onChange={e=>onChange(e.target.value)} className="w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}>
+        <option value="">— Select —</option>
+        {groupedOptions.map(g=><optgroup key={g.g} label={g.g}>{g.opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}</optgroup>)}
+      </select>:
+      options?<select value={value} onChange={e=>onChange(e.target.value)} className="w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}>
         {options.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
       </select>:
       textarea?<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} className="w-full p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-200 resize-none" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.text}}/>:
@@ -162,6 +189,46 @@ const Inp = ({label,value,onChange,type="text",placeholder,options,prefix,textar
 );
 
 const fmt = (n: number) => n.toLocaleString();
+
+const exportCSV=(book: CashBook, cur: string, reg: RegionKey)=>{
+  const hdr=["Date","Type","Amount ("+cur+")","Category","Note","Payment Mode","Proof"];
+  const rows=book.tx.map(t=>[t.dt,t.ty==="in"?"Cash In":"Cash Out",t.am.toString(),t.cat,t.no||"",payLabel(reg,t.payMode||"cash"),t.proof||""]);
+  const tI=book.tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);
+  const tO=book.tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);
+  rows.push([]);rows.push(["","Total In",tI.toString()]);rows.push(["","Total Out",tO.toString()]);rows.push(["","Balance",(tI-tO).toString()]);
+  const csv=[hdr,...rows].map(r=>r.map(c=>`"${c}"`).join(",")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv"});const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=`${book.name.replace(/\s+/g,"_")}_cashbook.csv`;a.click();URL.revokeObjectURL(url);
+};
+
+const exportPDF=(book: CashBook, cur: string, reg: RegionKey)=>{
+  const tI=book.tx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);
+  const tO=book.tx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);
+  const w=window.open("","_blank");if(!w)return;
+  w.document.write(`<!DOCTYPE html><html><head><title>${book.name} — Cash Book Report</title><style>
+    *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;padding:40px;color:#1A1A1A;max-width:900px;margin:0 auto}
+    h1{font-size:22px;margin-bottom:4px}h2{font-size:14px;color:#6B6560;font-weight:500;margin-bottom:20px}
+    .summary{display:flex;gap:16px;margin-bottom:24px}.sum-card{flex:1;padding:14px;border-radius:12px;text-align:center}
+    .sum-card p{font-size:10px;text-transform:uppercase;font-weight:700;letter-spacing:1px;margin-bottom:4px}
+    .sum-card h3{font-size:18px;font-weight:800}
+    table{width:100%;border-collapse:collapse;font-size:12px}th{background:#F6F5F0;padding:10px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#6B6560;font-weight:700}
+    td{padding:10px;border-bottom:1px solid #E8E6E1}.type-in{color:#22A06B;font-weight:700}.type-out{color:#E34935;font-weight:700}
+    .footer{margin-top:24px;font-size:10px;color:#9C9590;text-align:center}
+    @media print{body{padding:20px}}</style></head><body>
+    <h1>${book.icon} ${book.name}</h1>
+    <h2>${book.type==="business"?"Business":"Personal"} Cash Book • Generated ${new Date().toLocaleDateString()} • ${cur}</h2>
+    <div class="summary">
+      <div class="sum-card" style="background:#E6F9F0"><p style="color:#22A06B">Cash In</p><h3>${cur} ${fmt(tI)}</h3></div>
+      <div class="sum-card" style="background:#FDEDEB"><p style="color:#E34935">Cash Out</p><h3>${cur} ${fmt(tO)}</h3></div>
+      <div class="sum-card" style="background:#FEF9E7"><p style="color:#C8A630">Balance</p><h3>${cur} ${fmt(tI-tO)}</h3></div>
+    </div>
+    <table><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Category</th><th>Note</th><th>Payment Mode</th><th>Proof</th></tr></thead><tbody>
+    ${book.tx.map(t=>`<tr><td>${t.dt}</td><td class="type-${t.ty}">${t.ty==="in"?"↓ Cash In":"↑ Cash Out"}</td><td class="type-${t.ty}">${t.ty==="in"?"+":"-"}${cur} ${fmt(t.am)}</td><td>${t.cat}</td><td>${t.no||"—"}</td><td>${payLabel(reg,t.payMode||"cash")}</td><td>${t.proof?"📎 "+t.proof:"—"}</td></tr>`).join("")}
+    </tbody></table>
+    <div class="footer">Feloosak فلوسك — AI Finance Super App • ${RG[reg].fl} ${RG[reg].n} • ${RG[reg].auth}</div>
+    <script>setTimeout(()=>window.print(),400)<\/script></body></html>`);
+  w.document.close();
+};
 
 const Login = ({onLogin}: {onLogin: () => void}) => {
   const [em,setEm]=useState("admin@feloosak.com");
@@ -292,7 +359,7 @@ const Dash = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
     <Card className="p-4"><h3 className="text-sm font-bold mb-3" style={{color:TK.text}}>{LL.recentTx}</h3>
       <div className="space-y-1.5">{allTx.slice(0,6).map(t=>{const isI=t.ty==="in";const bk=books.find(b=>b.tx.some(x=>x.id===t.id));return <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-all" style={{border:`1px solid ${TK.borderL}`}}>
         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{background:isI?TK.okBg:TK.badBg}}>{isI?"↓":"↑"}</div>
-        <div className="flex-1 min-w-0"><p className="text-xs font-semibold truncate" style={{color:TK.text}}>{t.no}</p><p className="text-[10px]" style={{color:TK.textM}}>{bk?`${bk.icon} ${bk.name} • `:""}{LL[t.cat]||t.cat} • {t.dt}</p></div>
+        <div className="flex-1 min-w-0"><p className="text-xs font-semibold truncate" style={{color:TK.text}}>{t.no}</p><p className="text-[10px]" style={{color:TK.textM}}>{bk?`${bk.icon} ${bk.name} • `:""}{LL[t.cat]||t.cat} • {t.dt}{t.payMode?` • ${payLabel(R.id as RegionKey,t.payMode)}`:""}</p></div>
         <p className="text-xs font-bold" style={{color:isI?TK.ok:TK.bad}}>{isI?"+":"-"}{R.cur} {fmt(t.am)}</p>
       </div>})}</div>
     </Card>
@@ -300,16 +367,24 @@ const Dash = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
 };
 
 const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; setBooks: React.Dispatch<React.SetStateAction<CashBook[]>>; cu: CustItem[]}) => {
-  const c=R.cur;
+  const c=R.cur; const reg=R.id as RegionKey;
   const [bookType,setBookType]=useState<"business"|"personal">("business");
   const [activeBook,setActiveBook]=useState<number|null>(null);
   const [tab,setTab]=useState("all");
   const [showAdd,setShowAdd]=useState(false);
   const [showNewBook,setShowNewBook]=useState(false);
+  const [showMembers,setShowMembers]=useState(false);
+  const [showProofView,setShowProofView]=useState<string|null>(null);
   const [ty,setTy]=useState("in");
   const [am,setAm]=useState("");const [ca,setCa]=useState("sales");const [no,setNo]=useState("");
+  const [payMode,setPayMode]=useState("cash");
+  const [proofFile,setProofFile]=useState<string>("");
   const [newBookName,setNewBookName]=useState("");
   const [newBookIcon,setNewBookIcon]=useState("🏪");
+  const [newMemberName,setNewMemberName]=useState("");
+  const [newMemberEmail,setNewMemberEmail]=useState("");
+  const [newMemberRole,setNewMemberRole]=useState<"editor"|"viewer">("viewer");
+  const proofInputRef=useRef<HTMLInputElement>(null);
 
   const filteredBooks = books.filter(b=>b.type===bookType);
   const currentBook = activeBook!==null ? books.find(b=>b.id===activeBook) : null;
@@ -321,9 +396,9 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
 
   const addTx=()=>{
     if(!am||isNaN(Number(am))||!currentBook)return;
-    const newTx: TxItem = {id:Date.now(),ty,am:parseFloat(am),cat:ca,no,dt:"Mar 16"};
+    const newTx: TxItem = {id:Date.now(),ty,am:parseFloat(am),cat:ca,no,dt:"Mar 16",payMode,proof:proofFile||null};
     setBooks(prev=>prev.map(b=>b.id===currentBook.id?{...b,tx:[newTx,...b.tx]}:b));
-    setShowAdd(false);setAm("");setNo("");
+    setShowAdd(false);setAm("");setNo("");setPayMode("cash");setProofFile("");
   };
 
   const removeTx=(txId: number)=>{
@@ -335,7 +410,8 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
     if(!newBookName.trim())return;
     const newBook: CashBook = {
       id:Date.now(),name:newBookName.trim(),type:bookType,icon:newBookIcon,
-      color:BOOK_COLORS[books.length%BOOK_COLORS.length],tx:[],createdAt:"Mar 2026"
+      color:BOOK_COLORS[books.length%BOOK_COLORS.length],tx:[],createdAt:"Mar 2026",
+      members:[...DEFAULT_MEMBERS]
     };
     setBooks(prev=>[...prev,newBook]);
     setShowNewBook(false);setNewBookName("");setNewBookIcon("🏪");
@@ -346,11 +422,34 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
     if(activeBook===bookId)setActiveBook(null);
   };
 
+  const addMember=()=>{
+    if(!newMemberName.trim()||!newMemberEmail.trim()||!currentBook)return;
+    const m: BookMember={id:Date.now(),name:newMemberName.trim(),email:newMemberEmail.trim(),role:newMemberRole,avatar:newMemberName.trim().split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
+    setBooks(prev=>prev.map(b=>b.id===currentBook.id?{...b,members:[...b.members,m]}:b));
+    setNewMemberName("");setNewMemberEmail("");setNewMemberRole("viewer");
+  };
+
+  const removeMember=(memberId: number)=>{
+    if(!currentBook)return;
+    setBooks(prev=>prev.map(b=>b.id===currentBook.id?{...b,members:b.members.filter(m=>m.id!==memberId)}:b));
+  };
+
+  const updateMemberRole=(memberId: number, role: "admin"|"editor"|"viewer")=>{
+    if(!currentBook)return;
+    setBooks(prev=>prev.map(b=>b.id===currentBook.id?{...b,members:b.members.map(m=>m.id===memberId?{...m,role}:m)}:b));
+  };
+
+  const handleProofCapture=(e: React.ChangeEvent<HTMLInputElement>)=>{
+    const file=e.target.files?.[0];
+    if(file)setProofFile(file.name);
+  };
+
   if(currentBook){
     const bTx = currentBook.tx;
     const bIn = bTx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);
     const bOut = bTx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);
     const fl = tab==="in"?bTx.filter(t=>t.ty==="in"):tab==="out"?bTx.filter(t=>t.ty==="out"):tab==="cust"?[]:bTx;
+    const roleColors: Record<string,string> = {admin:TK.accent,editor:TK.info,viewer:TK.textM};
 
     return <div className="space-y-3">
       <div className="flex items-center gap-3">
@@ -359,9 +458,14 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
           <div className="flex items-center gap-2"><span className="text-lg">{currentBook.icon}</span><h1 className="text-lg font-bold" style={{color:TK.text}}>{currentBook.name}</h1>
             <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase" style={{background:currentBook.type==="business"?TK.infoBg:TK.accentBg,color:currentBook.type==="business"?TK.info:TK.accent}}>{currentBook.type}</span>
           </div>
-          <p className="text-[10px]" style={{color:TK.textM}}>Created {currentBook.createdAt} • {bTx.length} transactions</p>
+          <p className="text-[10px]" style={{color:TK.textM}}>Created {currentBook.createdAt} • {bTx.length} transactions • {currentBook.members.length} members</p>
         </div>
-        <button onClick={()=>setShowAdd(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>+ {LL.add}</button>
+        <div className="flex items-center gap-1.5">
+          <button onClick={()=>exportPDF(currentBook,c,reg)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold hover:shadow-sm transition-all" style={{background:TK.badBg,color:TK.bad,border:`1px solid ${TK.bad}15`}} title="Export PDF">📄 PDF</button>
+          <button onClick={()=>exportCSV(currentBook,c,reg)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold hover:shadow-sm transition-all" style={{background:TK.okBg,color:TK.ok,border:`1px solid ${TK.ok}15`}} title="Export Excel/CSV">📊 Excel</button>
+          <button onClick={()=>setShowMembers(true)} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold hover:shadow-sm transition-all" style={{background:TK.infoBg,color:TK.info,border:`1px solid ${TK.info}15`}}>👥 {currentBook.members.length}</button>
+          <button onClick={()=>setShowAdd(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>+ {LL.add}</button>
+        </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {[[LL.cashIn,bIn,TK.ok,TK.okBg],[LL.cashOut,bOut,TK.bad,TK.badBg],[LL.balance,bIn-bOut,TK.accent,TK.accentBg]].map(([l,v,cl,bg],i)=>(
@@ -382,16 +486,87 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
       :<div>{fl.length===0?<div className="text-center py-10"><p className="text-2xl mb-2">📭</p><p className="text-sm font-semibold" style={{color:TK.textM}}>No transactions yet</p><p className="text-[11px] mt-1" style={{color:TK.textM}}>Add your first entry to get started</p></div>
       :<div className="space-y-1.5">{fl.map(t=>{const isI=t.ty==="in";return <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl group hover:bg-gray-50" style={{border:`1px solid ${TK.borderL}`}}>
         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm" style={{background:isI?TK.okBg:TK.badBg}}>{isI?"↓":"↑"}</div>
-        <div className="flex-1 min-w-0"><p className="text-xs font-semibold truncate" style={{color:TK.text}}>{t.no||LL[t.cat]||t.cat}</p><p className="text-[10px]" style={{color:TK.textM}}>{LL[t.cat]||t.cat} • {t.dt}</p></div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold truncate" style={{color:TK.text}}>{t.no||LL[t.cat]||t.cat}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px]" style={{color:TK.textM}}>{LL[t.cat]||t.cat} • {t.dt}</span>
+            {t.payMode&&<span className="px-1.5 py-0.5 rounded text-[8px] font-semibold" style={{background:TK.infoBg,color:TK.info}}>{payLabel(reg,t.payMode)}</span>}
+            {t.proof&&<button onClick={()=>setShowProofView(t.proof!)} className="px-1.5 py-0.5 rounded text-[8px] font-semibold cursor-pointer hover:opacity-80" style={{background:TK.warnBg,color:TK.warn}}>📎 {t.proof}</button>}
+          </div>
+        </div>
         <p className="text-xs font-bold" style={{color:isI?TK.ok:TK.bad}}>{isI?"+":"-"}{c} {fmt(t.am)}</p>
         <button onClick={()=>removeTx(t.id)} className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs transition-opacity">✕</button>
       </div>})}</div>}</div>}
+
       <Modal open={showAdd} onClose={()=>setShowAdd(false)} title={`${LL.add} — ${currentBook.icon} ${currentBook.name}`}>
         <div className="flex gap-2 mb-3">{(["in","out"] as const).map(t=><button key={t} onClick={()=>setTy(t)} className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all" style={{background:ty===t?(t==="in"?TK.ok:TK.bad):TK.muted,color:ty===t?"#fff":TK.textM}}>{t==="in"?`↓ ${LL.cashIn}`:`↑ ${LL.cashOut}`}</button>)}</div>
         <Inp label={LL.amount} value={am} onChange={setAm} type="number" placeholder="0.00" prefix={c}/>
         <Inp label={LL.category} value={ca} onChange={setCa} options={currentCats.map(x=>({v:x,l:LL[x]||x.charAt(0).toUpperCase()+x.slice(1)}))}/>
+        <Inp label="Payment Mode" value={payMode} onChange={setPayMode} groupedOptions={PAY_MODES[reg]}/>
         <Inp label={LL.note} value={no} onChange={setNo} placeholder="Add a note..."/>
+        <div className="mb-3">
+          <label className="block text-[10px] font-bold mb-1 uppercase tracking-wider" style={{color:TK.textM}}>Payment Proof</label>
+          <div className="flex gap-2">
+            <input ref={proofInputRef} type="file" accept="image/*,.pdf" onChange={handleProofCapture} className="hidden"/>
+            <button onClick={()=>proofInputRef.current?.click()} className="flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:shadow-sm transition-all" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.textS}}>📁 Upload File</button>
+            <button onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.capture="environment";inp.onchange=(e:any)=>{const f=e.target.files?.[0];if(f)setProofFile(f.name);};inp.click();}} className="flex-1 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:shadow-sm transition-all" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.textS}}>📸 Capture</button>
+          </div>
+          {proofFile&&<div className="mt-2 flex items-center gap-2 p-2 rounded-lg" style={{background:TK.okBg,border:`1px solid ${TK.ok}15`}}>
+            <span className="text-xs">📎</span><span className="text-[11px] font-semibold flex-1 truncate" style={{color:TK.ok}}>{proofFile}</span>
+            <button onClick={()=>setProofFile("")} className="text-red-400 text-xs hover:text-red-600">✕</button>
+          </div>}
+        </div>
         <button onClick={addTx} className="w-full py-2.5 rounded-xl text-sm font-bold mt-1" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>{LL.save}</button>
+      </Modal>
+
+      <Modal open={showMembers} onClose={()=>setShowMembers(false)} title={`👥 Members — ${currentBook.icon} ${currentBook.name}`} wide>
+        <div className="p-2.5 rounded-xl mb-4 text-[11px]" style={{background:TK.accentBg,border:`1px solid ${TK.accent}20`,color:TK.textS}}>
+          Only <strong style={{color:TK.accent}}>Admins</strong> can add/remove members and change roles. <strong>Editors</strong> can add & edit entries. <strong>Viewers</strong> can only view.
+        </div>
+        <div className="space-y-2 mb-4">
+          {currentBook.members.map(m=>(
+            <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl" style={{background:TK.muted,border:`1px solid ${TK.borderL}`}}>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-bold" style={{background:`${roleColors[m.role]}15`,color:roleColors[m.role]}}>{m.avatar}</div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold" style={{color:TK.text}}>{m.name}</p>
+                <p className="text-[10px]" style={{color:TK.textM}}>{m.email}</p>
+              </div>
+              {m.role==="admin"&&m.id===1?
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase" style={{background:`${TK.accent}15`,color:TK.accent}}>Owner</span>
+              :<>
+                <select value={m.role} onChange={e=>updateMemberRole(m.id,e.target.value as "admin"|"editor"|"viewer")} className="text-[10px] font-semibold px-2 py-1 rounded-lg outline-none" style={{background:"white",border:`1px solid ${TK.border}`,color:roleColors[m.role]}}>
+                  <option value="admin">Admin</option>
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+                <button onClick={()=>removeMember(m.id)} className="text-red-400 hover:text-red-600 text-xs">✕</button>
+              </>}
+            </div>
+          ))}
+        </div>
+        <div className="p-3 rounded-xl" style={{background:TK.muted,border:`1px solid ${TK.borderL}`}}>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{color:TK.textM}}>Add New Member</p>
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <Inp label="Name" value={newMemberName} onChange={setNewMemberName} placeholder="Full name"/>
+            <Inp label="Email" value={newMemberEmail} onChange={setNewMemberEmail} type="email" placeholder="email@company.com"/>
+          </div>
+          <div className="flex gap-2 items-end">
+            <div className="flex-1"><Inp label="Role" value={newMemberRole} onChange={v=>setNewMemberRole(v as "editor"|"viewer")} options={[{v:"editor",l:"Editor — Can add & edit"},{v:"viewer",l:"Viewer — Read only"}]}/></div>
+            <button onClick={addMember} className="px-4 py-2.5 rounded-xl text-xs font-bold mb-3" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>Add</button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!showProofView} onClose={()=>setShowProofView(null)} title="Payment Proof">
+        <div className="text-center py-8">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl" style={{background:TK.muted}}>📎</div>
+          <p className="text-sm font-semibold" style={{color:TK.text}}>{showProofView}</p>
+          <p className="text-[11px] mt-1" style={{color:TK.textM}}>Payment proof attached to this transaction</p>
+          <div className="flex gap-2 justify-center mt-4">
+            <button className="px-4 py-2 rounded-xl text-xs font-semibold" style={{background:TK.muted,border:`1px solid ${TK.border}`,color:TK.textS}}>👁 View Full</button>
+            <button className="px-4 py-2 rounded-xl text-xs font-semibold" style={{background:TK.infoBg,color:TK.info}}>⬇ Download</button>
+          </div>
+        </div>
       </Modal>
     </div>;
   }
@@ -426,7 +601,7 @@ const CashBookPg = ({R,books,setBooks,cu}: {R: RegionInfo; books: CashBook[]; se
             <div className="flex items-center gap-2"><p className="text-sm font-bold" style={{color:TK.text}}>{book.name}</p>
               <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase" style={{background:book.type==="business"?TK.infoBg:TK.accentBg,color:book.type==="business"?TK.info:TK.accent}}>{book.type}</span>
             </div>
-            <p className="text-[10px] mt-0.5" style={{color:TK.textM}}>{book.tx.length} transactions • Since {book.createdAt}</p>
+            <p className="text-[10px] mt-0.5" style={{color:TK.textM}}>{book.tx.length} transactions • {book.members.length} members • Since {book.createdAt}</p>
           </div>
           <div className="text-right">
             <p className="text-sm font-extrabold" style={{color:bal>=0?TK.ok:TK.bad}}>{c} {fmt(bal)}</p>
