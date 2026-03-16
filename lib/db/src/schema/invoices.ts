@@ -26,6 +26,7 @@ export const invoicesTable = pgTable("invoices", {
   sellerTin: varchar("seller_tin", { length: 50 }).default(""),
   buyerTin: varchar("buyer_tin", { length: 50 }).default(""),
   currency: varchar("currency", { length: 10 }).default("EGP"),
+  signature: text("signature").default(""),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

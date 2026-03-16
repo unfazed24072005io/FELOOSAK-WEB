@@ -18,7 +18,7 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
-    const { customerId, invoiceNo, status, subtotal, discountTotal, vatAmount, whtAmount, total, vatRate, whtRate, terms, billingAddress, notes, items, invoiceDate, dueDate, sellerTin, buyerTin, currency } = req.body;
+    const { customerId, invoiceNo, status, subtotal, discountTotal, vatAmount, whtAmount, total, vatRate, whtRate, terms, billingAddress, notes, items, invoiceDate, dueDate, sellerTin, buyerTin, currency, signature } = req.body;
     if (!invoiceNo || !invoiceDate) return res.status(400).json({ error: "invoiceNo and invoiceDate required" });
     const count = await db.select().from(invoicesTable).where(eq(invoicesTable.userId, req.session.userId));
     const no = invoiceNo || `FEL-${String(count.length + 1).padStart(3, "0")}`;
@@ -39,6 +39,7 @@ router.post("/", async (req, res) => {
       sellerTin: sellerTin || "",
       buyerTin: buyerTin || "",
       currency: currency || "EGP",
+      signature: signature || "",
     }).returning();
     res.json(invoice);
   } catch (e: any) {
@@ -50,7 +51,7 @@ router.put("/:id", async (req, res) => {
   try {
     if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
     const id = parseInt(req.params.id);
-    const { status, subtotal, discountTotal, vatAmount, whtAmount, total, vatRate, whtRate, terms, billingAddress, notes, items, dueDate, sellerTin, buyerTin, currency } = req.body;
+    const { status, subtotal, discountTotal, vatAmount, whtAmount, total, vatRate, whtRate, terms, billingAddress, notes, items, dueDate, sellerTin, buyerTin, currency, invoiceNo, invoiceDate, customerId, signature } = req.body;
     const updates: any = { updatedAt: new Date() };
     if (status !== undefined) updates.status = status;
     if (subtotal !== undefined) updates.subtotal = subtotal.toString();
@@ -68,6 +69,10 @@ router.put("/:id", async (req, res) => {
     if (sellerTin !== undefined) updates.sellerTin = sellerTin;
     if (buyerTin !== undefined) updates.buyerTin = buyerTin;
     if (currency !== undefined) updates.currency = currency;
+    if (invoiceNo !== undefined) updates.invoiceNo = invoiceNo;
+    if (invoiceDate !== undefined) updates.invoiceDate = invoiceDate;
+    if (customerId !== undefined) updates.customerId = customerId;
+    if (signature !== undefined) updates.signature = signature;
     const [invoice] = await db.update(invoicesTable).set(updates)
       .where(and(eq(invoicesTable.id, id), eq(invoicesTable.userId, req.session.userId)))
       .returning();

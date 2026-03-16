@@ -798,6 +798,12 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
   const [buyerTin,setBuyerTin]=useState("");
   const [statusFilter,setStatusFilter]=useState("all");
   const [confirmDel,setConfirmDel]=useState<number|null>(null);
+  const [editingInvId,setEditingInvId]=useState<number|null>(null);
+  const [editingInvNo,setEditingInvNo]=useState("");
+  const [sigData,setSigData]=useState("");
+  const [sigMode,setSigMode]=useState<"draw"|"upload">("draw");
+  const sigCanvasRef=useRef<HTMLCanvasElement>(null);
+  const [isDrawing,setIsDrawing]=useState(false);
   const addIt=()=>setIts(p=>[...p,{n:"",q:1,p:0,d:0,dType:"pct"}]);
   const upIt=(i: number,f: string,v: string)=>setIts(p=>p.map((x,j)=>j===i?{...x,[f]:f==="n"||f==="dType"?v:parseFloat(v)||0}:x));
   const rmIt=(i: number)=>setIts(p=>p.filter((_,j)=>j!==i));
@@ -808,6 +814,69 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
   const wht=whtOn?Math.round(sub*(whtPct/100)):0;
   const tot=sub+vat-wht;
   const dueDate=getDueDate(iDate,iTm);
+
+  const startSigDraw=(e:React.MouseEvent<HTMLCanvasElement>|React.TouchEvent<HTMLCanvasElement>)=>{
+    const canvas=sigCanvasRef.current;if(!canvas)return;
+    setIsDrawing(true);
+    const ctx=canvas.getContext("2d");if(!ctx)return;
+    const rect=canvas.getBoundingClientRect();
+    const x="touches" in e?(e as React.TouchEvent).touches[0].clientX-rect.left:(e as React.MouseEvent).clientX-rect.left;
+    const y="touches" in e?(e as React.TouchEvent).touches[0].clientY-rect.top:(e as React.MouseEvent).clientY-rect.top;
+    ctx.beginPath();ctx.moveTo(x,y);
+  };
+  const moveSigDraw=(e:React.MouseEvent<HTMLCanvasElement>|React.TouchEvent<HTMLCanvasElement>)=>{
+    if(!isDrawing)return;
+    const canvas=sigCanvasRef.current;if(!canvas)return;
+    const ctx=canvas.getContext("2d");if(!ctx)return;
+    const rect=canvas.getBoundingClientRect();
+    const x="touches" in e?(e as React.TouchEvent).touches[0].clientX-rect.left:(e as React.MouseEvent).clientX-rect.left;
+    const y="touches" in e?(e as React.TouchEvent).touches[0].clientY-rect.top:(e as React.MouseEvent).clientY-rect.top;
+    ctx.strokeStyle="#1A1510";ctx.lineWidth=2;ctx.lineCap="round";ctx.lineJoin="round";
+    ctx.lineTo(x,y);ctx.stroke();
+  };
+  const endSigDraw=()=>{
+    setIsDrawing(false);
+    const canvas=sigCanvasRef.current;if(!canvas)return;
+    setSigData(canvas.toDataURL("image/png"));
+  };
+  const clearSig=()=>{
+    const canvas=sigCanvasRef.current;if(!canvas)return;
+    const ctx=canvas.getContext("2d");if(!ctx)return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    setSigData("");
+  };
+  const handleSigUpload=(e:React.ChangeEvent<HTMLInputElement>)=>{
+    const file=e.target.files?.[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{setSigData(ev.target?.result as string);};
+    reader.readAsDataURL(file);
+  };
+
+  const openEditInvoice=(inv:any)=>{
+    const rawInv=invoices.find(x=>x.id===inv.id);if(!rawInv)return;
+    setEditingInvId(rawInv.id);
+    setEditingInvNo(rawInv.invoiceNo||"");
+    setIDate(rawInv.invoiceDate||todayStr());
+    setITm(rawInv.terms||"net30");
+    setIAd(rawInv.billingAddress||"");
+    setINo(rawInv.notes||"");
+    setSellerTin(rawInv.sellerTin||"");
+    setBuyerTin(rawInv.buyerTin||"");
+    setVatPct(parseFloat(rawInv.vatRate)||Math.round(R.vr*100));
+    const wr=parseFloat(rawInv.whtRate)||0;
+    setWhtOn(wr>0);setWhtPct(wr||1);
+    setSigData(rawInv.signature||"");
+    const cust=rawInv.customerId?cu.find(x=>x.id===rawInv.customerId):null;
+    setICu(cust?.nm||"");
+    const items=Array.isArray(rawInv.items)?rawInv.items.map((it:any)=>({n:it.n||"",q:it.q||1,p:it.p||0,d:it.d||0,dType:(it.dType||"pct") as "pct"|"flat"})):([{n:"",q:1,p:0,d:0,dType:"pct" as const}]);
+    setIts(items);
+    setShowC(true);
+  };
+
+  const resetBuilder=()=>{
+    setEditingInvId(null);setEditingInvNo("");
+    setIts([{n:"",q:1,p:0,d:0,dType:"pct"}]);setICu("");setIAd("");setINo("");setIDate(todayStr());setSellerTin("");setBuyerTin("");setWhtOn(false);setSigData("");
+  };
 
   const sinv = invoices.map(inv => {
     const dd = inv.dueDate || getDueDate(inv.invoiceDate||"", inv.terms||"net30");
@@ -875,19 +944,28 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
   const createInvoice=async(asDraft=false)=>{
     setSaving(true);
     try {
-      const no = `FEL-${String(invoices.length+1).padStart(3,"0")}`;
       const selectedCust = cu.find(x => x.nm === iCu);
-      await api.invoices.create({
-        invoiceNo: no, invoiceDate: iDate, dueDate,
-        status: asDraft ? "draft" : "unpaid",
+      const existingInv = editingInvId ? invoices.find(x=>x.id===editingInvId) : null;
+      const newStatus = asDraft ? "draft" : "unpaid";
+      const payload: any = {
+        invoiceDate: iDate, dueDate,
+        status: editingInvId ? (asDraft ? "draft" : (existingInv?.status || "unpaid")) : newStatus,
         subtotal: sub, discountTotal: discTotal, vatAmount: vat, whtAmount: wht, total: tot,
         vatRate: vatPct, whtRate: whtOn ? whtPct : 0,
         terms: iTm, billingAddress: iAd, notes: iNo, items: its,
         customerId: selectedCust?.id || null,
         sellerTin, buyerTin: selectedCust?.tin || buyerTin, currency: c,
-      });
+        signature: sigData,
+      };
+      if (editingInvId) {
+        payload.invoiceNo = editingInvNo;
+        await api.invoices.update(editingInvId, payload);
+      } else {
+        payload.invoiceNo = `FEL-${String(invoices.length+1).padStart(3,"0")}`;
+        await api.invoices.create(payload);
+      }
       reload();
-      setShowC(false);setIts([{n:"",q:1,p:0,d:0,dType:"pct"}]);setICu("");setIAd("");setINo("");setIDate(todayStr());setSellerTin("");setBuyerTin("");setWhtOn(false);
+      setShowC(false);resetBuilder();
     } catch(e) { console.error(e); }
     setSaving(false);
   };
@@ -896,7 +974,8 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
     const selectedCust = cu.find(x => x.nm === iCu);
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>Invoice ${`FEL-${String(invoices.length+1).padStart(3,"0")}`}</title>
+    const invNo = editingInvId ? editingInvNo : `FEL-${String(invoices.length+1).padStart(3,"0")}`;
+    w.document.write(`<!DOCTYPE html><html><head><title>Invoice ${invNo}</title>
       <style>body{font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;padding:20px;color:#1A1A1A}
       .header{display:flex;justify-content:space-between;margin-bottom:30px}.logo{font-size:24px;font-weight:800;color:#C8A630}
       table{width:100%;border-collapse:collapse;margin:20px 0}th{background:#F6F5F0;text-align:left;padding:10px;font-size:12px;text-transform:uppercase;color:#9C9590}
@@ -908,7 +987,7 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
       <div class="header"><div><div class="logo">feloosk</div><p style="font-size:11px;color:#9C9590">${bizName}${user.businessPhone ? " · "+user.businessPhone : ""}</p>
       ${sellerTin ? `<p style="font-size:10px;color:#9C9590">TIN: ${sellerTin}</p>` : ""}</div>
       <div style="text-align:right"><h2 style="margin:0;color:#C8A630">INVOICE</h2>
-      <p style="font-size:12px">#FEL-${String(invoices.length+1).padStart(3,"0")}</p>
+      <p style="font-size:12px">#${invNo}</p>
       <p style="font-size:11px;color:#9C9590">Date: ${iDate}<br/>Due: ${dueDate}<br/>Terms: ${iTm==="net30"?"Net 30":iTm==="net60"?"Net 60":"Due on Receipt"}</p></div></div>
       <div style="margin-bottom:20px"><strong style="font-size:12px">Bill To:</strong>
       <p style="font-size:12px">${selectedCust?.nm||iCu||"—"}</p>
@@ -927,6 +1006,7 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
       <div class="words"><strong>Amount in words:</strong> ${numToWords(tot)} ${c}</div>
       ${iNo?`<div style="margin-top:16px;padding:12px;background:#FAF9F7;border-radius:8px;font-size:11px"><strong>Notes:</strong> ${iNo}</div>`:""}
       ${hasBankInfo?`<div style="margin-top:16px;padding:12px;background:#FAF9F7;border-radius:8px;font-size:11px"><strong>Payment Details:</strong><br/>${user.bankName?"Bank: "+user.bankName+"<br/>":""}${user.businessName?"Account: "+user.businessName+"<br/>":""}${user.bankAccount?"Account No: "+user.bankAccount+"<br/>":""}${user.bankIban?"IBAN: "+user.bankIban+"<br/>":""}${user.bankSwift?"SWIFT: "+user.bankSwift:""}</div>`:""}
+      ${sigData?`<div style="margin-top:24px;border-top:1px solid #E8E6E1;padding-top:16px"><p style="font-size:10px;color:#9C9590;margin-bottom:8px">Authorized Signature</p><img src="${sigData}" alt="Signature" style="max-height:60px"/><p style="font-size:11px;margin-top:4px;font-weight:600">${bizName}</p></div>`:""}
       <div class="footer">© 2026 feloosk · www.feloosk.com</div></body></html>`);
     w.document.close();
   };
@@ -935,7 +1015,7 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
     <div className="flex items-center justify-between flex-wrap gap-2">
       <div><h1 className="text-lg font-bold" style={{color:TK.text}}>{LL.invoices}</h1><p className="text-[10px]" style={{color:TK.textM}}>{R.fl} {R.auth} • {R.vl} • {R.fmt}</p></div>
       <div className="flex items-center gap-2"><Badge t={`${R.auth} ${R.eM?"Active":"Pilot"}`} c={R.eM?TK.ok:TK.warn}/>
-        <button onClick={()=>setShowC(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>+ {LL.createInv}</button>
+        <button onClick={()=>{resetBuilder();setShowC(true);}} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>+ {LL.createInv}</button>
       </div>
     </div>
     <div className="p-3 rounded-xl text-[11px] font-semibold" style={{background:R.id==="EG"?TK.badBg:TK.infoBg,color:R.id==="EG"?TK.bad:TK.info,border:`1px solid ${R.id==="EG"?`${TK.bad}15`:`${TK.info}15`}`}}>
@@ -970,6 +1050,7 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
         <div className="text-right"><p className="text-xs font-bold" style={{color:TK.text}}>{c} {fmt(inv.t)}</p><span className="inline-block px-2 py-0.5 rounded-full text-[8px] font-bold uppercase mt-0.5" style={{background:`${sc[inv.s]||TK.textM}12`,color:sc[inv.s]||TK.textM}}>{inv.s}</span></div>
       </div>
       <div className="flex items-center gap-1.5 mt-2 pt-2 flex-wrap" style={{borderTop:`1px solid ${TK.borderL}`}}>
+        <button onClick={()=>openEditInvoice(inv)} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.accentBg,color:TK.accent,border:`1px solid ${TK.accent}20`}}>✏️ Edit</button>
         {inv.s==="draft"&&<button onClick={()=>updateInvStatus(inv.id,"unpaid")} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.infoBg,color:TK.info,border:`1px solid ${TK.info}20`}}>📨 Send</button>}
         {(inv.s==="unpaid"||inv.s==="overdue"||inv.s==="sent")&&<>
           <button onClick={()=>updateInvStatus(inv.id,"paid")} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.okBg,color:TK.ok,border:`1px solid ${TK.ok}20`}}>✓ Mark Paid</button>
@@ -1034,7 +1115,7 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
       </div>}
     </Modal>
 
-    <Modal open={showC} onClose={()=>setShowC(false)} title={`${LL.createInv} — ${R.fl} ${R.auth}`} wide>
+    <Modal open={showC} onClose={()=>{setShowC(false);resetBuilder();}} title={editingInvId?`Edit Invoice ${editingInvNo}`:`${LL.createInv} — ${R.fl} ${R.auth}`} wide>
       <div className="p-2.5 rounded-xl mb-3 text-[10px]" style={{background:TK.accentBg,border:`1px solid ${TK.accent}20`,color:TK.textS}}>
         <strong style={{color:TK.accent}}>{R.n}:</strong> VAT {vatPct}% • {R.fmt} • {R.sig} {R.id==="EG"&&"• GS1 codes • Real-time ETA • UUID+QR"}{R.id==="AE"&&"• TRN required • Peppol CTC"}
       </div>
@@ -1092,11 +1173,37 @@ const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invo
         <p className="text-[9px] italic" style={{color:TK.textM}}>{numToWords(tot)} {c}</p>
       </div>
       <Inp label={LL.notes} value={iNo} onChange={setINo} placeholder="Payment terms, bank details..."/>
+      <div className="mb-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{color:TK.textM}}>Signature</p>
+        <div className="flex gap-2 mb-2">
+          <button onClick={()=>setSigMode("draw")} className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:sigMode==="draw"?"#fff":TK.muted,color:sigMode==="draw"?TK.accent:TK.textM,border:`1px solid ${sigMode==="draw"?TK.accent:TK.border}`,boxShadow:sigMode==="draw"?TK.sh:"none"}}>✍️ Draw</button>
+          <button onClick={()=>setSigMode("upload")} className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:sigMode==="upload"?"#fff":TK.muted,color:sigMode==="upload"?TK.accent:TK.textM,border:`1px solid ${sigMode==="upload"?TK.accent:TK.border}`,boxShadow:sigMode==="upload"?TK.sh:"none"}}>📁 Upload</button>
+        </div>
+        {sigMode==="draw"?<div>
+          <canvas ref={sigCanvasRef} width={400} height={120} onMouseDown={startSigDraw} onMouseMove={moveSigDraw} onMouseUp={endSigDraw} onMouseLeave={endSigDraw} onTouchStart={startSigDraw} onTouchMove={moveSigDraw} onTouchEnd={endSigDraw} className="w-full rounded-xl cursor-crosshair touch-none" style={{background:"#fff",border:`2px dashed ${TK.border}`,height:120}}/>
+          <div className="flex items-center justify-between mt-1.5">
+            <p className="text-[9px]" style={{color:TK.textM}}>Draw your signature above</p>
+            <button onClick={clearSig} className="text-[9px] font-semibold px-2 py-0.5 rounded" style={{color:TK.bad}}>Clear</button>
+          </div>
+        </div>
+        :<div>
+          <label className="flex items-center justify-center gap-2 py-4 rounded-xl cursor-pointer" style={{background:TK.muted,border:`2px dashed ${TK.border}`}}>
+            <input type="file" accept="image/*" onChange={handleSigUpload} className="hidden"/>
+            <span className="text-sm">📷</span>
+            <span className="text-[11px] font-semibold" style={{color:TK.textM}}>Upload signature image</span>
+          </label>
+        </div>}
+        {sigData&&<div className="mt-2 flex items-center gap-2 p-2 rounded-lg" style={{background:TK.okBg,border:`1px solid ${TK.ok}15`}}>
+          <img src={sigData} alt="Signature" className="h-12 rounded-lg" style={{border:`1px solid ${TK.border}`}}/>
+          <span className="text-[10px] font-semibold flex-1" style={{color:TK.ok}}>Signature attached</span>
+          <button onClick={()=>{setSigData("");clearSig();}} className="text-red-400 text-xs hover:text-red-600">✕ Remove</button>
+        </div>}
+      </div>
       <div className="grid grid-cols-4 gap-2 mt-3">
         <button onClick={previewInvoice} className="py-2 rounded-xl text-[11px] font-semibold" style={{background:TK.muted,color:TK.textS,border:`1px solid ${TK.border}`}}>👁 Preview</button>
         <button onClick={()=>{previewInvoice();setTimeout(()=>{},300);}} className="py-2 rounded-xl text-[11px] font-semibold" style={{background:TK.muted,color:TK.textS,border:`1px solid ${TK.border}`}}>🖨 Print</button>
         <button onClick={()=>createInvoice(true)} disabled={saving} className="py-2 rounded-xl text-[11px] font-semibold" style={{background:TK.muted,color:TK.textS,border:`1px solid ${TK.border}`}}>{saving?"...":"💾 Draft"}</button>
-        <button onClick={()=>createInvoice(false)} disabled={saving} className="py-2 rounded-xl text-[11px] font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>{saving?"...":"📨 "+( R.id==="EG"?"Submit ETA":"Send")}</button>
+        <button onClick={()=>createInvoice(false)} disabled={saving} className="py-2 rounded-xl text-[11px] font-bold" style={{background:"linear-gradient(135deg,#C8A630,#DABC42)",color:"#1A1510"}}>{saving?"...":"📨 "+(editingInvId?"Update":(R.id==="EG"?"Submit ETA":"Send"))}</button>
       </div>
     </Modal>
   </div>;
