@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
   Alert,
   Platform,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,6 +19,28 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { user, logout, updateProfile } = useAuth();
+  const [showPay, setShowPay] = useState(false);
+  const [bName, setBName] = useState(user?.bankName || "");
+  const [bAcct, setBAcct] = useState(user?.bankAccount || "");
+  const [bIban, setBIban] = useState(user?.bankIban || "");
+  const [bSwift, setBSwift] = useState(user?.bankSwift || "");
+  const [pLink, setPLink] = useState(user?.paymentLink || "");
+  const [bizName, setBizName] = useState(user?.businessName || "");
+  const [bizPhone, setBizPhone] = useState(user?.businessPhone || "");
+  const [paySaving, setPaySaving] = useState(false);
+  const [paySaved, setPaySaved] = useState(false);
+
+  const savePaymentDetails = async () => {
+    setPaySaving(true);
+    try {
+      await updateProfile({ bankName: bName, bankAccount: bAcct, bankIban: bIban, bankSwift: bSwift, paymentLink: pLink, businessName: bizName, businessPhone: bizPhone });
+      setPaySaved(true);
+      setTimeout(() => setPaySaved(false), 2000);
+    } catch {}
+    setPaySaving(false);
+  };
+
+  const hasBankSetup = user?.bankName || user?.bankAccount || user?.bankIban || user?.paymentLink;
 
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -134,6 +157,50 @@ export default function SettingsScreen() {
             </View>
             <Feather name="chevron-right" size={18} color={Colors.textTertiary} />
           </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>PAYMENT DETAILS</Text>
+        <View style={styles.section}>
+          <Pressable style={styles.menuItem} onPress={() => setShowPay(!showPay)}>
+            <View style={styles.menuItemLeft}>
+              <Feather name="credit-card" size={20} color={Colors.text} />
+              <View>
+                <Text style={styles.menuItemText}>Bank & Payment Link</Text>
+                <Text style={styles.menuItemSub}>
+                  {hasBankSetup ? "Configured — shown on reminders" : "Not configured"}
+                </Text>
+              </View>
+            </View>
+            <Feather name={showPay ? "chevron-up" : "chevron-down"} size={18} color={Colors.textTertiary} />
+          </Pressable>
+
+          {showPay && (
+            <View style={styles.paymentForm}>
+              <Text style={styles.payFormLabel}>Business Info</Text>
+              <TextInput style={styles.payInput} value={bizName} onChangeText={setBizName} placeholder="Business Name" placeholderTextColor={Colors.textTertiary} />
+              <TextInput style={styles.payInput} value={bizPhone} onChangeText={setBizPhone} placeholder="Business Phone" placeholderTextColor={Colors.textTertiary} keyboardType="phone-pad" />
+
+              <Text style={[styles.payFormLabel, { marginTop: 12 }]}>Bank Account</Text>
+              <TextInput style={styles.payInput} value={bName} onChangeText={setBName} placeholder={user?.region === "EG" ? "e.g. CIB, NBE, Banque Misr" : "e.g. Emirates NBD, ADCB"} placeholderTextColor={Colors.textTertiary} />
+              <TextInput style={styles.payInput} value={bAcct} onChangeText={setBAcct} placeholder="Account Number" placeholderTextColor={Colors.textTertiary} keyboardType="numeric" />
+              <TextInput style={styles.payInput} value={bIban} onChangeText={setBIban} placeholder={user?.region === "EG" ? "EG38 0019..." : "AE07 0331..."} placeholderTextColor={Colors.textTertiary} autoCapitalize="characters" />
+              <TextInput style={styles.payInput} value={bSwift} onChangeText={setBSwift} placeholder="SWIFT/BIC Code" placeholderTextColor={Colors.textTertiary} autoCapitalize="characters" />
+
+              <Text style={[styles.payFormLabel, { marginTop: 12 }]}>Payment Link</Text>
+              <TextInput style={styles.payInput} value={pLink} onChangeText={setPLink} placeholder="https://pay.fawry.io/..." placeholderTextColor={Colors.textTertiary} keyboardType="url" autoCapitalize="none" />
+              <Text style={styles.payHint}>Fawry, InstaPay, PayPal, Stripe, or any payment URL</Text>
+
+              <Pressable
+                style={[styles.savePayBtn, paySaved && { backgroundColor: Colors.ok }]}
+                onPress={savePaymentDetails}
+                disabled={paySaving}
+              >
+                <Text style={styles.savePayText}>
+                  {paySaving ? "Saving..." : paySaved ? "Saved!" : "Save Payment Details"}
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>ABOUT</Text>
@@ -300,6 +367,51 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600" as const,
     color: Colors.bad,
+    fontFamily: "Inter_600SemiBold",
+  },
+  paymentForm: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  payFormLabel: {
+    fontSize: 11,
+    fontWeight: "600" as const,
+    color: Colors.textTertiary,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  payInput: {
+    backgroundColor: Colors.bg,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: Colors.text,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 8,
+  },
+  payHint: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 12,
+  },
+  savePayBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  savePayText: {
+    fontSize: 15,
+    fontWeight: "600" as const,
+    color: Colors.bgDark,
     fontFamily: "Inter_600SemiBold",
   },
   footerText: {

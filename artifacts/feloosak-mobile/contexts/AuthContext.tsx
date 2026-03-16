@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { api, User } from "@/lib/api";
+import { api, User, ProfileUpdatePayload } from "@/lib/api";
 
 interface AuthState {
   user: User | null;
@@ -7,7 +7,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (data: { email: string; password: string; name: string; region?: string }) => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (data: { name?: string; region?: string }) => Promise<void>;
+  updateProfile: (data: ProfileUpdatePayload) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
-  const updateProfile = useCallback(async (data: { name?: string; region?: string }) => {
+  const updateProfile = useCallback(async (data: ProfileUpdatePayload) => {
     const { user: u } = await api.auth.updateProfile(data);
     setUser(u);
   }, []);

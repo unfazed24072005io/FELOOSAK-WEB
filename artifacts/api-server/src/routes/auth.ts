@@ -84,10 +84,17 @@ router.put("/profile", async (req, res) => {
     if (!req.session.userId) {
       return res.status(401).json({ error: "Not authenticated" });
     }
-    const { name, region } = req.body;
+    const { name, region, bankName, bankAccount, bankIban, bankSwift, paymentLink, businessName, businessPhone } = req.body;
     const updates: any = {};
     if (name) updates.name = name;
     if (region) updates.region = region;
+    if (bankName !== undefined) updates.bankName = bankName;
+    if (bankAccount !== undefined) updates.bankAccount = bankAccount;
+    if (bankIban !== undefined) updates.bankIban = bankIban;
+    if (bankSwift !== undefined) updates.bankSwift = bankSwift;
+    if (paymentLink !== undefined) updates.paymentLink = paymentLink;
+    if (businessName !== undefined) updates.businessName = businessName;
+    if (businessPhone !== undefined) updates.businessPhone = businessPhone;
     updates.updatedAt = new Date();
     const [user] = await db.update(usersTable).set(updates).where(eq(usersTable.id, req.session.userId)).returning();
     const { password: _, ...safe } = user;

@@ -134,7 +134,7 @@ interface CashBook {
   members: BookMember[];
 }
 interface CustItem { id: number; nm: string; ph: string; ow: number; pd: number; tr: number }
-interface UserData { id: number; email: string; name: string; region: string; avatar: string }
+interface UserData { id: number; email: string; name: string; region: string; avatar: string; bankName?: string; bankAccount?: string; bankIban?: string; bankSwift?: string; paymentLink?: string; businessName?: string; businessPhone?: string }
 
 const BOOK_ICONS=["🏪","🛒","💼","🏢","🏭","🚗","🏠","📱","💻","🎯","📦","🔧","👛","🏦","💳","🎓","✈️","🏥","🎭","📚"];
 const MO=[{m:"Oct",i:62000,e:41000},{m:"Nov",i:78000,e:52000},{m:"Dec",i:95000,e:61000},{m:"Jan",i:71000,e:48000},{m:"Feb",i:84000,e:55000},{m:"Mar",i:91500,e:21450}];
@@ -685,12 +685,14 @@ const CashBookPg = ({R,books,reload,cu}: {R: RegionInfo; books: CashBook[]; relo
 
 interface InvLine { n: string; q: number; p: number; d: number }
 
-const InvPg = ({R,cu,invoices,reload}: {R: RegionInfo; cu: CustItem[]; invoices: any[]; reload: () => void}) => {
+const InvPg = ({R,cu,invoices,reload,user}: {R: RegionInfo; cu: CustItem[]; invoices: any[]; reload: () => void; user: UserData}) => {
   const c=R.cur;
   const [showC,setShowC]=useState(false);
   const [iCu,setICu]=useState("");const [iTm,setITm]=useState("net30");const [iAd,setIAd]=useState("");const [iNo,setINo]=useState("");
   const [its,setIts]=useState<InvLine[]>([{n:"",q:1,p:0,d:0}]);
   const [saving,setSaving]=useState(false);
+  const [remInv,setRemInv]=useState<any|null>(null);
+  const [copied,setCopied]=useState("");
   const addIt=()=>setIts(p=>[...p,{n:"",q:1,p:0,d:0}]);
   const upIt=(i: number,f: string,v: string)=>setIts(p=>p.map((x,j)=>j===i?{...x,[f]:f==="n"?v:parseFloat(v)||0}:x));
   const rmIt=(i: number)=>setIts(p=>p.filter((_,j)=>j!==i));
@@ -701,10 +703,53 @@ const InvPg = ({R,cu,invoices,reload}: {R: RegionInfo; cu: CustItem[]; invoices:
     id: inv.id,
     nm: inv.invoiceNo,
     cu: inv.customerId ? cu.find(c => c.id === inv.customerId)?.nm || "Unknown" : "Unknown",
+    cuPhone: inv.customerId ? cu.find(c => c.id === inv.customerId)?.ph || "" : "",
     t: parseFloat(inv.total) || 0,
     s: inv.status,
+    terms: inv.terms || "net30",
+    date: inv.invoiceDate || "",
   }));
   const sc: Record<string,string>={paid:TK.ok,unpaid:TK.warn,draft:TK.textM};
+
+  const hasBankInfo = user.bankName || user.bankAccount || user.bankIban;
+  const hasPayLink = !!user.paymentLink;
+  const bizName = user.businessName || user.name;
+
+  const buildReminderText = (inv: any, includeBank: boolean, includePayLink: boolean) => {
+    const termsLabel: Record<string,string> = {net30:"Net 30 Days",net60:"Net 60 Days",due:"Due on Receipt"};
+    let msg = `Payment Reminder\n\nDear ${inv.cu},\n\nThis is a friendly reminder regarding the following invoice:\n\nInvoice: ${inv.nm}\nAmount Due: ${c} ${fmt(inv.t)}\nDate: ${inv.date}\nTerms: ${termsLabel[inv.terms]||inv.terms}\n`;
+    if (includePayLink && user.paymentLink) {
+      msg += `\nPay Online:\n${user.paymentLink}\n`;
+    }
+    if (includeBank && hasBankInfo) {
+      msg += `\nBank Transfer Details:\n`;
+      if (user.bankName) msg += `Bank: ${user.bankName}\n`;
+      if (user.businessName) msg += `Account Name: ${user.businessName}\n`;
+      if (user.bankAccount) msg += `Account No: ${user.bankAccount}\n`;
+      if (user.bankIban) msg += `IBAN: ${user.bankIban}\n`;
+      if (user.bankSwift) msg += `SWIFT: ${user.bankSwift}\n`;
+    }
+    msg += `\nPlease make the payment at your earliest convenience.\n\nThank you,\n${bizName}`;
+    if (user.businessPhone) msg += `\nPhone: ${user.businessPhone}`;
+    return msg;
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => { setCopied(label); setTimeout(() => setCopied(""), 2000); });
+  };
+
+  const shareWhatsApp = (inv: any, includeBank: boolean, includePayLink: boolean) => {
+    const text = buildReminderText(inv, includeBank, includePayLink);
+    const phone = inv.cuPhone ? inv.cuPhone.replace(/[^0-9+]/g,"") : "";
+    const url = phone ? `https://wa.me/${phone.replace("+","")}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
+  const shareEmail = (inv: any, includeBank: boolean, includePayLink: boolean) => {
+    const text = buildReminderText(inv, includeBank, includePayLink);
+    const subject = encodeURIComponent(`Payment Reminder: ${inv.nm} - ${c} ${fmt(inv.t)}`);
+    window.open(`mailto:?subject=${subject}&body=${encodeURIComponent(text)}`, "_blank");
+  };
 
   const createInvoice=async()=>{
     setSaving(true);
@@ -734,11 +779,66 @@ const InvPg = ({R,cu,invoices,reload}: {R: RegionInfo; cu: CustItem[]; invoices:
     </div>
     <div className="grid grid-cols-4 gap-2">{[["VAT",`${(R.vr*100)}%`,TK.accent],["Count",`${sinv.length}`,TK.text],["Unpaid",`${sinv.filter(x=>x.s==="unpaid").length}`,TK.warn],["Archive",`${R.arch}yr`,TK.info]].map(([l,v,cl],i)=><Card key={i} className="p-2.5 text-center"><p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>{l as string}</p><p className="text-lg font-black" style={{color:cl as string}}>{v as string}</p></Card>)}</div>
     {sinv.length===0?<div className="text-center py-10"><p className="text-3xl mb-2">📄</p><p className="text-sm font-semibold" style={{color:TK.textM}}>No invoices yet</p><p className="text-[11px] mt-1" style={{color:TK.textM}}>Create your first invoice to get started</p></div>
-    :<div className="space-y-1.5">{sinv.map((inv,i)=><Card key={i} className="p-3.5 flex items-center gap-3 hover:shadow-md transition-all cursor-pointer">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:TK.accentBg}}>📄</div>
-      <div className="flex-1"><p className="text-xs font-semibold" style={{color:TK.text}}>{inv.nm}</p><p className="text-[10px]" style={{color:TK.textM}}>{inv.cu}</p></div>
-      <div className="text-right"><p className="text-xs font-bold" style={{color:TK.text}}>{c} {fmt(inv.t)}</p><span className="inline-block px-2 py-0.5 rounded-full text-[8px] font-bold uppercase mt-0.5" style={{background:`${sc[inv.s]||TK.textM}12`,color:sc[inv.s]||TK.textM}}>{inv.s}</span></div>
+    :<div className="space-y-1.5">{sinv.map((inv,i)=><Card key={i} className="p-3.5 hover:shadow-md transition-all">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:TK.accentBg}}>📄</div>
+        <div className="flex-1"><p className="text-xs font-semibold" style={{color:TK.text}}>{inv.nm}</p><p className="text-[10px]" style={{color:TK.textM}}>{inv.cu}</p></div>
+        <div className="text-right"><p className="text-xs font-bold" style={{color:TK.text}}>{c} {fmt(inv.t)}</p><span className="inline-block px-2 py-0.5 rounded-full text-[8px] font-bold uppercase mt-0.5" style={{background:`${sc[inv.s]||TK.textM}12`,color:sc[inv.s]||TK.textM}}>{inv.s}</span></div>
+      </div>
+      {inv.s!=="paid"&&<div className="flex items-center gap-1.5 mt-2 pt-2" style={{borderTop:`1px solid ${TK.borderL}`}}>
+        <button onClick={()=>setRemInv(inv)} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.accentBg,color:TK.accent,border:`1px solid ${TK.accent}20`}}>🔔 Send Reminder</button>
+        <button onClick={()=>shareWhatsApp(inv,true,true)} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:"#25D36612",color:"#25D366",border:"1px solid #25D36620"}}>💬 WhatsApp</button>
+        <button onClick={()=>shareEmail(inv,true,true)} className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold" style={{background:TK.infoBg,color:TK.info,border:`1px solid ${TK.info}20`}}>📧 Email</button>
+      </div>}
     </Card>)}</div>}
+
+    <Modal open={!!remInv} onClose={()=>{setRemInv(null);setCopied("");}} title="🔔 Payment Reminder">
+      {remInv&&<div className="space-y-3">
+        <div className="p-3 rounded-xl" style={{background:TK.accentBg}}>
+          <div className="flex justify-between items-center"><span className="text-xs font-bold" style={{color:TK.text}}>{remInv.nm}</span><span className="text-xs font-black" style={{color:TK.accent}}>{c} {fmt(remInv.t)}</span></div>
+          <p className="text-[10px] mt-0.5" style={{color:TK.textM}}>Customer: {remInv.cu} · Status: {remInv.s}</p>
+        </div>
+
+        {!hasBankInfo&&!hasPayLink&&<div className="p-3 rounded-xl text-[11px]" style={{background:TK.warnBg,color:TK.warn,border:`1px solid ${TK.warn}20`}}>
+          ⚠️ No payment details configured. Go to <strong>Settings → Payment Details</strong> to add your bank account or payment link so customers know how to pay.
+        </div>}
+
+        {hasBankInfo&&<div className="p-3 rounded-xl" style={{background:TK.muted,border:`1px solid ${TK.border}`}}>
+          <div className="flex items-center justify-between mb-1.5"><p className="text-[10px] font-bold" style={{color:TK.text}}>🏦 Bank Transfer Details</p>
+            <button onClick={()=>{let t="";if(user.bankName)t+=`Bank: ${user.bankName}\n`;if(user.businessName)t+=`Name: ${user.businessName}\n`;if(user.bankAccount)t+=`Account: ${user.bankAccount}\n`;if(user.bankIban)t+=`IBAN: ${user.bankIban}\n`;if(user.bankSwift)t+=`SWIFT: ${user.bankSwift}\n`;copyToClipboard(t,"bank");}} className="text-[9px] font-semibold px-2 py-0.5 rounded-full" style={{background:copied==="bank"?TK.okBg:TK.accentBg,color:copied==="bank"?TK.ok:TK.accent}}>{copied==="bank"?"✓ Copied":"Copy"}</button>
+          </div>
+          <div className="space-y-0.5">
+            {user.bankName&&<p className="text-[10px]" style={{color:TK.textS}}>Bank: <strong>{user.bankName}</strong></p>}
+            {user.businessName&&<p className="text-[10px]" style={{color:TK.textS}}>Name: <strong>{user.businessName}</strong></p>}
+            {user.bankAccount&&<p className="text-[10px]" style={{color:TK.textS}}>Account: <strong>{user.bankAccount}</strong></p>}
+            {user.bankIban&&<p className="text-[10px]" style={{color:TK.textS}}>IBAN: <strong>{user.bankIban}</strong></p>}
+            {user.bankSwift&&<p className="text-[10px]" style={{color:TK.textS}}>SWIFT: <strong>{user.bankSwift}</strong></p>}
+          </div>
+        </div>}
+
+        {hasPayLink&&<div className="p-3 rounded-xl" style={{background:TK.okBg,border:`1px solid ${TK.ok}20`}}>
+          <div className="flex items-center justify-between mb-1"><p className="text-[10px] font-bold" style={{color:TK.ok}}>🔗 Payment Link</p>
+            <button onClick={()=>copyToClipboard(user.paymentLink!,"link")} className="text-[9px] font-semibold px-2 py-0.5 rounded-full" style={{background:copied==="link"?"#fff":TK.okBg,color:TK.ok}}>{copied==="link"?"✓ Copied":"Copy Link"}</button>
+          </div>
+          <a href={user.paymentLink} target="_blank" rel="noreferrer" className="text-[10px] break-all underline" style={{color:TK.ok}}>{user.paymentLink}</a>
+        </div>}
+
+        <p className="text-[9px] font-bold uppercase tracking-wider" style={{color:TK.textM}}>Share Reminder Via</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={()=>shareWhatsApp(remInv,true,true)} className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold" style={{background:"#25D36612",color:"#25D366",border:"1px solid #25D36625"}}>💬 WhatsApp{remInv.cuPhone?" (Direct)":""}</button>
+          <button onClick={()=>shareEmail(remInv,true,true)} className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-bold" style={{background:TK.infoBg,color:TK.info,border:`1px solid ${TK.info}25`}}>📧 Email</button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {hasPayLink&&<button onClick={()=>copyToClipboard(user.paymentLink!,"paylink")} className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-semibold" style={{background:TK.okBg,color:TK.ok,border:`1px solid ${TK.ok}20`}}>{copied==="paylink"?"✓ Copied!":"🔗 Copy Payment Link"}</button>}
+          <button onClick={()=>copyToClipboard(buildReminderText(remInv,true,true),"full")} className={`flex items-center justify-center gap-1.5 py-2 rounded-xl text-[10px] font-semibold ${hasPayLink?"":"col-span-2"}`} style={{background:TK.muted,color:TK.textS,border:`1px solid ${TK.border}`}}>{copied==="full"?"✓ Copied!":"📋 Copy Full Message"}</button>
+        </div>
+
+        <div className="p-3 rounded-xl" style={{background:TK.muted,border:`1px solid ${TK.border}`}}>
+          <p className="text-[9px] font-bold mb-1.5" style={{color:TK.textM}}>Message Preview</p>
+          <pre className="text-[9px] leading-relaxed whitespace-pre-wrap" style={{color:TK.textS}}>{buildReminderText(remInv,!!hasBankInfo,hasPayLink)}</pre>
+        </div>
+      </div>}
+    </Modal>
 
     <Modal open={showC} onClose={()=>setShowC(false)} title={`${LL.createInv} — ${R.fl} ${R.auth}`} wide>
       <div className="p-2.5 rounded-xl mb-3 text-[10px]" style={{background:TK.accentBg,border:`1px solid ${TK.accent}20`,color:TK.textS}}>
@@ -984,10 +1084,33 @@ const CompPg = ({R,books}: {R: RegionInfo; books: CashBook[]}) => {
   </div>;
 };
 
-const SetPg = ({R,user,setReg,onLogout}: {R: RegionInfo; user: UserData; setReg: (r: RegionKey) => void; onLogout: () => void}) => {
+const SetPg = ({R,user,setReg,onLogout,onUserUpdate}: {R: RegionInfo; user: UserData; setReg: (r: RegionKey) => void; onLogout: () => void; onUserUpdate: (u: UserData) => void}) => {
   const handleRegion=async(r: RegionKey)=>{
     try { await api.auth.updateProfile({ region: r }); setReg(r); } catch(e) { console.error(e); }
   };
+  const [showPay,setShowPay]=useState(false);
+  const [bName,setBName]=useState(user.bankName||"");
+  const [bAcct,setBAcct]=useState(user.bankAccount||"");
+  const [bIban,setBIban]=useState(user.bankIban||"");
+  const [bSwift,setBSwift]=useState(user.bankSwift||"");
+  const [pLink,setPLink]=useState(user.paymentLink||"");
+  const [bizName,setBizName]=useState(user.businessName||"");
+  const [bizPhone,setBizPhone]=useState(user.businessPhone||"");
+  const [paySaving,setPaySaving]=useState(false);
+  const [paySaved,setPaySaved]=useState(false);
+
+  const savePayment=async()=>{
+    setPaySaving(true);
+    try {
+      const res = await api.auth.updateProfile({ bankName:bName, bankAccount:bAcct, bankIban:bIban, bankSwift:bSwift, paymentLink:pLink, businessName:bizName, businessPhone:bizPhone });
+      onUserUpdate(res.user);
+      setPaySaved(true); setTimeout(()=>setPaySaved(false),2000);
+    } catch(e) { console.error(e); }
+    setPaySaving(false);
+  };
+
+  const hasBankSetup = user.bankName || user.bankAccount || user.bankIban || user.paymentLink;
+
   return <div className="space-y-4">
     <h1 className="text-lg font-bold" style={{color:TK.text}}>{LL.settings}</h1>
     <Card className="p-4 space-y-4">
@@ -1000,6 +1123,33 @@ const SetPg = ({R,user,setReg,onLogout}: {R: RegionInfo; user: UserData; setReg:
       </div>
       <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:`${TK.ok}12`}}>🛡</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>{R.auth}</p><p className="text-[10px]" style={{color:TK.textM}}>{R.fmt} • {R.eM?"Mandatory":"Pilot"}</p></div></div>
         <Badge t={R.eM?"Active":"Pilot"} c={R.eM?TK.ok:TK.warn}/></div>
+    </Card>
+
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:`${TK.accent}12`}}>💳</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>Payment Details</p><p className="text-[10px]" style={{color:TK.textM}}>{hasBankSetup?"Configured — shown on invoice reminders":"Not configured"}</p></div></div>
+        <button onClick={()=>setShowPay(!showPay)} className="text-[10px] font-semibold px-3 py-1 rounded-full" style={{background:TK.accentBg,color:TK.accent}}>{showPay?"Close":"Edit"}</button>
+      </div>
+      {showPay&&<div className="space-y-3 pt-2" style={{borderTop:`1px solid ${TK.borderL}`}}>
+        <p className="text-[9px] font-bold uppercase tracking-wider" style={{color:TK.textM}}>Business Info</p>
+        <div className="grid grid-cols-2 gap-2">
+          <Inp label="Business Name" value={bizName} onChange={setBizName} placeholder="Your Company Name"/>
+          <Inp label="Business Phone" value={bizPhone} onChange={setBizPhone} placeholder="+20 10 1234 5678"/>
+        </div>
+        <p className="text-[9px] font-bold uppercase tracking-wider mt-2" style={{color:TK.textM}}>Bank Account</p>
+        <div className="grid grid-cols-2 gap-2">
+          <Inp label="Bank Name" value={bName} onChange={setBName} placeholder={R.id==="EG"?"e.g. CIB, Banque Misr, NBE":"e.g. Emirates NBD, ADCB"} options={R.id==="EG"?[{v:"",l:"— Select or type —"},{v:"CIB",l:"CIB"},{v:"National Bank of Egypt",l:"NBE"},{v:"Banque Misr",l:"Banque Misr"},{v:"QNB Al Ahli",l:"QNB Al Ahli"},{v:"HSBC Egypt",l:"HSBC Egypt"},{v:"Bank of Alexandria",l:"Alex Bank"},{v:"Faisal Islamic Bank",l:"Faisal Islamic"}]:[{v:"",l:"— Select or type —"},{v:"Emirates NBD",l:"Emirates NBD"},{v:"ADCB",l:"ADCB"},{v:"First Abu Dhabi Bank",l:"FAB"},{v:"Mashreq",l:"Mashreq"},{v:"Dubai Islamic Bank",l:"DIB"},{v:"RAKBank",l:"RAKBank"}]}/>
+          <Inp label="Account Number" value={bAcct} onChange={setBAcct} placeholder="1234567890"/>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Inp label="IBAN" value={bIban} onChange={setBIban} placeholder={R.id==="EG"?"EG38 0019 0005 0000 0000 1234 5":"AE07 0331 2345 6789 0123 456"}/>
+          <Inp label="SWIFT/BIC" value={bSwift} onChange={setBSwift} placeholder={R.id==="EG"?"CIBEEGCX":"EABORADR"}/>
+        </div>
+        <p className="text-[9px] font-bold uppercase tracking-wider mt-2" style={{color:TK.textM}}>Payment Link</p>
+        <Inp label="Online Payment URL" value={pLink} onChange={setPLink} placeholder="https://pay.fawry.io/your-link or https://www.paypal.me/..."/>
+        <p className="text-[9px]" style={{color:TK.textM}}>Accepts: Fawry, InstaPay, PayPal, Stripe, Paymob, or any payment URL. This link will be included in invoice reminders.</p>
+        <button onClick={savePayment} disabled={paySaving} className="w-full py-2 rounded-xl text-xs font-bold" style={{background:paySaved?"#22A06B":"linear-gradient(135deg,#C8A630,#DABC42)",color:paySaved?"#fff":"#1A1510"}}>{paySaving?"Saving...":paySaved?"✓ Saved!":"Save Payment Details"}</button>
+      </div>}
     </Card>
     <Card className="p-4"><h3 className="text-xs font-bold mb-3" style={{color:TK.text}}>🇪🇬 vs 🇦🇪 Comparison</h3>
       <div className="space-y-1">{[["VAT","14% (Prof: 10%)","5%"],["Corp Tax","22.5% (SME: 0.4–1.5%)","0%→9%"],["E-Invoice","ETA Mandatory","FTA Pilot 2026"],["Archival","5 years","5 years"],["WHT","1%–3% services","0%"],["Social Ins","11%+18.75%","5%+12.5% (nationals)"]].map(([l,eg,ae],i)=>
@@ -1069,10 +1219,10 @@ export default function App(){
     switch(pg){
       case "dash":return <Dash R={R} books={books} cu={customers}/>;
       case "cash":return <CashBookPg R={R} books={books} reload={loadData} cu={customers}/>;
-      case "inv":return <InvPg R={R} cu={customers} invoices={invoices} reload={loadData}/>;
+      case "inv":return <InvPg R={R} cu={customers} invoices={invoices} reload={loadData} user={user}/>;
       case "ai":return <AiPg R={R} books={books} cu={customers}/>;
       case "comp":return <CompPg R={R} books={books}/>;
-      case "set":return <SetPg R={R} user={user} setReg={setReg} onLogout={handleLogout}/>;
+      case "set":return <SetPg R={R} user={user} setReg={setReg} onLogout={handleLogout} onUserUpdate={setUser}/>;
       default:return null;
     }
   };

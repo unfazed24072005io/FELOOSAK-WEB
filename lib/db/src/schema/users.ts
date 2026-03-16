@@ -10,6 +10,13 @@ export const usersTable = pgTable("users", {
   region: varchar("region", { length: 2 }).notNull().default("EG"),
   avatar: varchar("avatar", { length: 10 }).default("A"),
   active: boolean("active").notNull().default(true),
+  bankName: varchar("bank_name", { length: 255 }),
+  bankAccount: varchar("bank_account", { length: 255 }),
+  bankIban: varchar("bank_iban", { length: 64 }),
+  bankSwift: varchar("bank_swift", { length: 16 }),
+  paymentLink: text("payment_link"),
+  businessName: varchar("business_name", { length: 255 }),
+  businessPhone: varchar("business_phone", { length: 32 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

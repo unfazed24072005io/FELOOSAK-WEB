@@ -80,7 +80,7 @@ export const api = {
       await request<{ ok: boolean }>("/auth/logout", { method: "POST" });
       await saveSession(null);
     },
-    updateProfile: (data: { name?: string; region?: string }) =>
+    updateProfile: (data: ProfileUpdatePayload) =>
       request<{ user: User }>("/auth/profile", {
         method: "PUT",
         body: JSON.stringify(data),
@@ -152,12 +152,31 @@ export const api = {
   seed: () => request<any>("/seed", { method: "POST" }),
 };
 
+export interface ProfileUpdatePayload {
+  name?: string;
+  region?: string;
+  bankName?: string;
+  bankAccount?: string;
+  bankIban?: string;
+  bankSwift?: string;
+  paymentLink?: string;
+  businessName?: string;
+  businessPhone?: string;
+}
+
 export interface User {
   id: number;
   email: string;
   name: string;
   region: string;
   avatar: string;
+  bankName?: string;
+  bankAccount?: string;
+  bankIban?: string;
+  bankSwift?: string;
+  paymentLink?: string;
+  businessName?: string;
+  businessPhone?: string;
   createdAt: string;
   updatedAt: string;
 }

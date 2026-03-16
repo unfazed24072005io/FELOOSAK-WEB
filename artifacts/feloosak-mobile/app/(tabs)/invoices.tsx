@@ -5,9 +5,13 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Linking,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -25,14 +29,20 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   overdue: { bg: Colors.bad + "20", text: Colors.bad },
 };
 
+const fmt = (n: number) => n.toLocaleString();
+
 export default function InvoicesScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [remInv, setRemInv] = useState<Invoice | null>(null);
 
   const currency = user?.region === "AE" ? "AED" : "EGP";
+  const hasBankInfo = user?.bankName || user?.bankAccount || user?.bankIban;
+  const hasPayLink = !!user?.paymentLink;
+  const bizName = user?.businessName || user?.name || "";
 
   const loadInvoices = useCallback(async () => {
     try {
@@ -54,6 +64,45 @@ export default function InvoicesScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadInvoices();
+  };
+
+  const buildReminderText = (inv: Invoice, includeBank: boolean, includePayLink: boolean) => {
+    const termsLabel: Record<string, string> = { net30: "Net 30 Days", net60: "Net 60 Days", due: "Due on Receipt" };
+    const total = parseFloat(inv.total) || 0;
+    let msg = `Payment Reminder\n\nDear Customer,\n\nThis is a friendly reminder regarding the following invoice:\n\nInvoice: ${inv.invoiceNo}\nAmount Due: ${currency} ${fmt(total)}\nDate: ${inv.invoiceDate}\nTerms: ${termsLabel[inv.terms || "net30"] || inv.terms}\n`;
+    if (includePayLink && user?.paymentLink) {
+      msg += `\nPay Online:\n${user.paymentLink}\n`;
+    }
+    if (includeBank && hasBankInfo) {
+      msg += `\nBank Transfer Details:\n`;
+      if (user?.bankName) msg += `Bank: ${user.bankName}\n`;
+      if (user?.businessName) msg += `Account Name: ${user.businessName}\n`;
+      if (user?.bankAccount) msg += `Account No: ${user.bankAccount}\n`;
+      if (user?.bankIban) msg += `IBAN: ${user.bankIban}\n`;
+      if (user?.bankSwift) msg += `SWIFT: ${user.bankSwift}\n`;
+    }
+    msg += `\nPlease make the payment at your earliest convenience.\n\nThank you,\n${bizName}`;
+    if (user?.businessPhone) msg += `\nPhone: ${user.businessPhone}`;
+    return msg;
+  };
+
+  const shareReminder = async (inv: Invoice) => {
+    const text = buildReminderText(inv, !!hasBankInfo, hasPayLink);
+    try {
+      await Share.share({ message: text, title: `Payment Reminder: ${inv.invoiceNo}` });
+    } catch {}
+  };
+
+  const shareWhatsApp = (inv: Invoice) => {
+    const text = buildReminderText(inv, !!hasBankInfo, hasPayLink);
+    Linking.openURL(`https://wa.me/?text=${encodeURIComponent(text)}`);
+  };
+
+  const shareEmail = (inv: Invoice) => {
+    const total = parseFloat(inv.total) || 0;
+    const text = buildReminderText(inv, !!hasBankInfo, hasPayLink);
+    const subject = encodeURIComponent(`Payment Reminder: ${inv.invoiceNo} - ${currency} ${fmt(total)}`);
+    Linking.openURL(`mailto:?subject=${subject}&body=${encodeURIComponent(text)}`);
   };
 
   const handleDelete = (id: number, no: string) => {
@@ -102,43 +151,60 @@ export default function InvoicesScreen() {
   const renderInvoice = ({ item }: { item: Invoice }) => {
     const total = parseFloat(item.total) || 0;
     const statusStyle = STATUS_COLORS[item.status] || STATUS_COLORS.draft;
+    const isUnpaid = item.status !== "paid";
 
     return (
-      <Pressable
-        style={({ pressed }) => [styles.invoiceCard, pressed && { opacity: 0.95 }]}
-        onPress={() => handleStatusChange(item)}
-        onLongPress={() => handleDelete(item.id, item.invoiceNo)}
-      >
-        <View style={styles.invoiceHeader}>
-          <View>
-            <Text style={styles.invoiceNo}>{item.invoiceNo}</Text>
-            <Text style={styles.invoiceDate}>{item.invoiceDate}</Text>
+      <View style={styles.invoiceCard}>
+        <Pressable
+          style={({ pressed }) => [pressed && { opacity: 0.95 }]}
+          onPress={() => handleStatusChange(item)}
+          onLongPress={() => handleDelete(item.id, item.invoiceNo)}
+        >
+          <View style={styles.invoiceHeader}>
+            <View>
+              <Text style={styles.invoiceNo}>{item.invoiceNo}</Text>
+              <Text style={styles.invoiceDate}>{item.invoiceDate}</Text>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+              <Text style={[styles.statusText, { color: statusStyle.text }]}>
+                {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+              </Text>
+            </View>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-            <Text style={[styles.statusText, { color: statusStyle.text }]}>
-              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+          <View style={styles.invoiceFooter}>
+            <View style={styles.invoiceAmounts}>
+              <View style={styles.amountItem}>
+                <Text style={styles.amountLabel}>Subtotal</Text>
+                <Text style={styles.amountValue}>{parseFloat(item.subtotal || "0").toLocaleString()}</Text>
+              </View>
+              <View style={styles.amountItem}>
+                <Text style={styles.amountLabel}>VAT</Text>
+                <Text style={styles.amountValue}>{parseFloat(item.vatAmount || "0").toLocaleString()}</Text>
+              </View>
+            </View>
+            <Text style={styles.invoiceTotal}>
+              {total.toLocaleString()} {currency}
             </Text>
           </View>
-        </View>
-        <View style={styles.invoiceFooter}>
-          <View style={styles.invoiceAmounts}>
-            <View style={styles.amountItem}>
-              <Text style={styles.amountLabel}>Subtotal</Text>
-              <Text style={styles.amountValue}>{parseFloat(item.subtotal || "0").toLocaleString()}</Text>
-            </View>
-            <View style={styles.amountItem}>
-              <Text style={styles.amountLabel}>VAT</Text>
-              <Text style={styles.amountValue}>{parseFloat(item.vatAmount || "0").toLocaleString()}</Text>
-            </View>
+        </Pressable>
+
+        {isUnpaid && (
+          <View style={styles.reminderBar}>
+            <Pressable style={styles.reminderBtn} onPress={() => setRemInv(item)}>
+              <Feather name="bell" size={13} color={Colors.accent} />
+              <Text style={styles.reminderBtnText}>Remind</Text>
+            </Pressable>
+            <Pressable style={styles.whatsappBtn} onPress={() => shareWhatsApp(item)}>
+              <Feather name="message-circle" size={13} color="#25D366" />
+              <Text style={[styles.reminderBtnText, { color: "#25D366" }]}>WhatsApp</Text>
+            </Pressable>
+            <Pressable style={styles.emailBtn} onPress={() => shareEmail(item)}>
+              <Feather name="mail" size={13} color={Colors.info} />
+              <Text style={[styles.reminderBtnText, { color: Colors.info }]}>Email</Text>
+            </Pressable>
           </View>
-          <Text style={styles.invoiceTotal}>
-            {total.toLocaleString()} {currency}
-          </Text>
-        </View>
-        {item.status !== "paid" && (
-          <Text style={styles.tapHint}>Tap to advance status</Text>
         )}
-      </Pressable>
+      </View>
     );
   };
 
@@ -177,6 +243,84 @@ export default function InvoicesScreen() {
           }
         />
       )}
+
+      <Modal visible={!!remInv} transparent animationType="slide" onRequestClose={() => setRemInv(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Payment Reminder</Text>
+              <Pressable onPress={() => setRemInv(null)}>
+                <Feather name="x" size={22} color={Colors.textSecondary} />
+              </Pressable>
+            </View>
+
+            {remInv && (
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                <View style={styles.invSummary}>
+                  <View style={styles.invSummaryRow}>
+                    <Text style={styles.invSummaryNo}>{remInv.invoiceNo}</Text>
+                    <Text style={styles.invSummaryAmt}>{currency} {fmt(parseFloat(remInv.total) || 0)}</Text>
+                  </View>
+                  <Text style={styles.invSummarySub}>Status: {remInv.status} · {remInv.invoiceDate}</Text>
+                </View>
+
+                {!hasBankInfo && !hasPayLink && (
+                  <View style={styles.warnBox}>
+                    <Feather name="alert-triangle" size={14} color={Colors.warn} />
+                    <Text style={styles.warnText}>No payment details configured. Go to Settings to add bank details or payment link.</Text>
+                  </View>
+                )}
+
+                {hasBankInfo && (
+                  <View style={styles.bankBox}>
+                    <Text style={styles.sectionLabel}>Bank Transfer Details</Text>
+                    {user?.bankName && <Text style={styles.bankLine}>Bank: <Text style={styles.bankVal}>{user.bankName}</Text></Text>}
+                    {user?.businessName && <Text style={styles.bankLine}>Name: <Text style={styles.bankVal}>{user.businessName}</Text></Text>}
+                    {user?.bankAccount && <Text style={styles.bankLine}>Account: <Text style={styles.bankVal}>{user.bankAccount}</Text></Text>}
+                    {user?.bankIban && <Text style={styles.bankLine}>IBAN: <Text style={styles.bankVal}>{user.bankIban}</Text></Text>}
+                    {user?.bankSwift && <Text style={styles.bankLine}>SWIFT: <Text style={styles.bankVal}>{user.bankSwift}</Text></Text>}
+                  </View>
+                )}
+
+                {hasPayLink && (
+                  <Pressable style={styles.payLinkBox} onPress={() => Linking.openURL(user!.paymentLink!)}>
+                    <Feather name="link" size={14} color={Colors.ok} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.payLinkLabel}>Payment Link</Text>
+                      <Text style={styles.payLinkUrl} numberOfLines={1}>{user?.paymentLink}</Text>
+                    </View>
+                    <Feather name="external-link" size={14} color={Colors.ok} />
+                  </Pressable>
+                )}
+
+                <Text style={[styles.sectionLabel, { marginTop: 16 }]}>Share Via</Text>
+                <View style={styles.shareGrid}>
+                  <Pressable style={styles.shareBtn} onPress={() => remInv && shareWhatsApp(remInv)}>
+                    <Feather name="message-circle" size={20} color="#25D366" />
+                    <Text style={[styles.shareBtnText, { color: "#25D366" }]}>WhatsApp</Text>
+                  </Pressable>
+                  <Pressable style={styles.shareBtn} onPress={() => remInv && shareEmail(remInv)}>
+                    <Feather name="mail" size={20} color={Colors.info} />
+                    <Text style={[styles.shareBtnText, { color: Colors.info }]}>Email</Text>
+                  </Pressable>
+                  <Pressable style={styles.shareBtn} onPress={() => remInv && shareReminder(remInv)}>
+                    <Feather name="share-2" size={20} color={Colors.accent} />
+                    <Text style={[styles.shareBtnText, { color: Colors.accent }]}>Share</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.previewBox}>
+                  <Text style={styles.previewLabel}>Message Preview</Text>
+                  <Text style={styles.previewText}>
+                    {buildReminderText(remInv, !!hasBankInfo, hasPayLink)}
+                  </Text>
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -274,12 +418,55 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontFamily: "Inter_700Bold",
   },
-  tapHint: {
-    fontSize: 11,
-    color: Colors.textTertiary,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    marginTop: 8,
+  reminderBar: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border + "60",
+  },
+  reminderBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: Colors.accent + "12",
+    borderWidth: 1,
+    borderColor: Colors.accent + "20",
+  },
+  whatsappBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: "#25D366" + "12",
+    borderWidth: 1,
+    borderColor: "#25D366" + "20",
+  },
+  emailBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: Colors.info + "12",
+    borderWidth: 1,
+    borderColor: Colors.info + "20",
+  },
+  reminderBtnText: {
+    fontSize: 12,
+    fontWeight: "600" as const,
+    color: Colors.accent,
+    fontFamily: "Inter_600SemiBold",
   },
   loadingState: {
     flex: 1,
@@ -304,5 +491,184 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     fontFamily: "Inter_400Regular",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: Colors.bg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "85%",
+    paddingTop: 8,
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.textTertiary + "40",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700" as const,
+    color: Colors.text,
+    fontFamily: "Inter_700Bold",
+  },
+  modalBody: {
+    padding: 20,
+  },
+  invSummary: {
+    backgroundColor: Colors.accent + "12",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  invSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  invSummaryNo: {
+    fontSize: 15,
+    fontWeight: "700" as const,
+    color: Colors.text,
+    fontFamily: "Inter_700Bold",
+  },
+  invSummaryAmt: {
+    fontSize: 15,
+    fontWeight: "800" as const,
+    color: Colors.accent,
+    fontFamily: "Inter_700Bold",
+  },
+  invSummarySub: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
+  },
+  warnBox: {
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: Colors.warn + "12",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.warn + "20",
+    alignItems: "flex-start",
+  },
+  warnText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.warn,
+    fontFamily: "Inter_500Medium",
+  },
+  bankBox: {
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "700" as const,
+    color: Colors.textSecondary,
+    fontFamily: "Inter_700Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  bankLine: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 3,
+  },
+  bankVal: {
+    fontWeight: "600" as const,
+    color: Colors.text,
+    fontFamily: "Inter_600SemiBold",
+  },
+  payLinkBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: Colors.ok + "10",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.ok + "20",
+  },
+  payLinkLabel: {
+    fontSize: 11,
+    fontWeight: "700" as const,
+    color: Colors.ok,
+    fontFamily: "Inter_700Bold",
+  },
+  payLinkUrl: {
+    fontSize: 12,
+    color: Colors.ok,
+    fontFamily: "Inter_400Regular",
+    marginTop: 2,
+  },
+  shareGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 16,
+  },
+  shareBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  shareBtnText: {
+    fontSize: 12,
+    fontWeight: "600" as const,
+    fontFamily: "Inter_600SemiBold",
+  },
+  previewBox: {
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: 20,
+  },
+  previewLabel: {
+    fontSize: 10,
+    fontWeight: "700" as const,
+    color: Colors.textTertiary,
+    fontFamily: "Inter_700Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  previewText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
   },
 });

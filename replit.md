@@ -128,8 +128,8 @@ Feloosak Mobile — Expo React Native app for iOS/Android. Connects to the same 
 - Cash Books dashboard with balance summary, business/personal filter, create book
 - Book detail screen with transactions list, add transaction form sheet
 - Customers list with trust ratings, owed/paid balances, add customer form sheet
-- Invoices list with status badges (draft/sent/paid), status advancement
-- Settings with profile card, region switcher (Egypt/UAE), tax compliance badges
+- Invoices list with status badges (draft/sent/paid), status advancement, payment reminders (WhatsApp/Email/Share)
+- Settings with profile card, region switcher (Egypt/UAE), tax compliance badges, payment details form (bank info + payment link)
 - API client with session cookie management for auth persistence
 - Liquid glass tab bar support for iOS 26+ via NativeTabs
 
