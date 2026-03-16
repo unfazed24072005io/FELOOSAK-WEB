@@ -54,7 +54,7 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 ### `artifacts/feloosak` (`@workspace/feloosak`)
 
-Feloosak (فلوسك) — AI-powered finance super-app for Egypt & UAE. React+Vite SPA with Tailwind CSS.
+feloosk — AI-powered finance super-app for Egypt & UAE. React+Vite SPA with Tailwind CSS. Website: www.feloosk.com · Email: support@feloosk.com
 
 **Key Features:**
 - Login screen with split-panel layout (dark branding panel + sign-in form)

@@ -43,13 +43,7 @@ export default function LoginScreen() {
     <View style={[styles.container, { paddingBottom: insets.bottom + 16 }]}>
       <View style={styles.header}>
         <View style={styles.logoRow}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>f</Text>
-          </View>
-          <View>
-            <Text style={styles.brandName}>Feloosak</Text>
-            <Text style={styles.brandAr}>فلوسك</Text>
-          </View>
+          <Text style={styles.brandName}>feloosk</Text>
         </View>
         <Text style={styles.title}>Welcome back</Text>
         <Text style={styles.subtitle}>Sign in to manage your finances</Text>
@@ -112,7 +106,7 @@ export default function LoginScreen() {
         </Link>
       </View>
 
-      <Text style={styles.demoHint}>Demo: admin@feloosak.com / admin123</Text>
+      <Text style={styles.demoHint}>Demo: admin@feloosk.com / admin123</Text>
     </View>
   );
 }
@@ -147,15 +141,11 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
   },
   brandName: {
-    fontSize: 18,
+    fontSize: 26,
     fontWeight: "700" as const,
     color: Colors.text,
     fontFamily: "Inter_700Bold",
-  },
-  brandAr: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontFamily: "Inter_400Regular",
+    letterSpacing: -0.5,
   },
   title: {
     fontSize: 28,

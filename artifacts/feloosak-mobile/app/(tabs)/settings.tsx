@@ -224,7 +224,7 @@ export default function SettingsScreen() {
           <Text style={styles.logoutText}>Sign Out</Text>
         </Pressable>
 
-        <Text style={styles.footerText}>Aura Tech Labs 2026</Text>
+        <Text style={styles.footerText}>feloosk 2026 · www.feloosk.com</Text>
       </ScrollView>
     </View>
   );

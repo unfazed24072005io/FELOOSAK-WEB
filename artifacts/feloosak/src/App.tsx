@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { api } from "./api";
+import logoImg from "@assets/1773682232697_1773682245650.png";
 
 const TK = {
   bg:"#F6F5F0",card:"#FFFFFF",muted:"#FAF9F7",border:"#E8E6E1",borderL:"#F0EDE8",
@@ -104,7 +105,7 @@ const LL: Record<string, string> = {
   paidS:"Paid",unpaid:"Unpaid",draft:"Draft",
   items:"Items",subtotal:"Subtotal",vat:"VAT",total:"Total",
   netProfit:"Net Profit",recentTx:"Recent Transactions",topCats:"Top Categories",
-  trend:"Monthly Trend",askAi:"Ask Feloosak anything...",
+  trend:"Monthly Trend",askAi:"Ask feloosk anything...",
   vatSum:"VAT Summary",corpTax:"Corporate Tax",outVat:"Output VAT",inVat:"Input VAT",
   netVat:"Net VAT Payable",taxCal:"Tax Calendar",
   region:"Region",lang:"Language",logout:"Logout",
@@ -240,7 +241,7 @@ const exportPDF=(book: CashBook, cur: string, reg: RegionKey)=>{
     <table><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Category</th><th>Note</th><th>Payment Mode</th><th>Proof</th></tr></thead><tbody>
     ${book.tx.map(t=>`<tr><td>${t.dt}</td><td class="type-${t.ty}">${t.ty==="in"?"↓ Cash In":"↑ Cash Out"}</td><td class="type-${t.ty}">${t.ty==="in"?"+":"-"}${cur} ${fmt(t.am)}</td><td>${t.cat}</td><td>${t.no||"—"}</td><td>${payLabel(reg,t.payMode||"cash")}</td><td>${t.proof?"📎 "+t.proof:"—"}</td></tr>`).join("")}
     </tbody></table>
-    <div class="footer">Feloosak فلوسك — AI Finance Super App • ${RG[reg].fl} ${RG[reg].n} • ${RG[reg].auth}</div>
+    <div class="footer">feloosk — AI Finance Super App • ${RG[reg].fl} ${RG[reg].n} • ${RG[reg].auth} • www.feloosk.com</div>
     <script>setTimeout(()=>window.print(),400)<\/script></body></html>`);
   w.document.close();
 };
@@ -274,8 +275,7 @@ const Login = ({onLogin}: {onLogin: (user: UserData) => void}) => {
   return <div className="min-h-screen flex" style={{background:TK.bg}}>
     <div className="hidden lg:flex lg:w-[44%] flex-col justify-between p-10 relative overflow-hidden" style={{background:"linear-gradient(145deg,#1A1510,#2C2315,#3D2E18)"}}>
       <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{background:"linear-gradient(135deg,#C8A630,#E8C840)"}}><span className="text-xl font-black" style={{color:"#1A1510"}}>ف</span></div>
-        <div><span className="text-lg font-black text-white">Feloosak</span><span className="block text-[11px]" style={{color:"#C8A630"}}>فلوسك</span></div>
+        <img src={logoImg} alt="feloosk" className="h-8" style={{filter:"brightness(0) invert(1)"}}/>
       </div>
       <div>
         <h2 className="text-3xl font-black leading-tight text-white mb-3">The financial<br/>brain for every<br/>MENA business</h2>
@@ -284,17 +284,16 @@ const Login = ({onLogin}: {onLogin: (user: UserData) => void}) => {
           {["ETA Compliant","FTA Ready","Offline-First","Arabic-Native"].map(t=><span key={t} className="px-3 py-1.5 rounded-full text-[9px] font-bold" style={{background:"#C8A63015",color:"#C8A630",border:"1px solid #C8A63025"}}>{t}</span>)}
         </div>
       </div>
-      <p className="text-[10px]" style={{color:"#6B5B40"}}>© 2026 Aura Tech Labs</p>
+      <p className="text-[10px]" style={{color:"#6B5B40"}}>© 2026 feloosk · www.feloosk.com</p>
       <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full" style={{background:"#C8A63008"}}/>
     </div>
     <div className="flex-1 flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="lg:hidden flex items-center gap-2 mb-6">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:"linear-gradient(135deg,#C8A630,#E8C840)"}}><span className="text-base font-black" style={{color:"#1A1510"}}>ف</span></div>
-          <span className="font-bold" style={{color:TK.text}}>Feloosak</span>
+          <img src={logoImg} alt="feloosk" className="h-6"/>
         </div>
         <h1 className="text-xl font-black mb-0.5" style={{color:TK.text}}>{mode==="login"?"Sign in":"Create account"}</h1>
-        <p className="text-xs mb-6" style={{color:TK.textM}}>{mode==="login"?"Enter your credentials to continue":"Join Feloosak — free forever"}</p>
+        <p className="text-xs mb-6" style={{color:TK.textM}}>{mode==="login"?"Enter your credentials to continue":"Join feloosk — free forever"}</p>
         {err&&<div className="p-2.5 rounded-xl mb-3 text-xs font-semibold" style={{background:TK.badBg,color:TK.bad}}>{err}</div>}
         {mode==="register"&&<Inp label="Full Name" value={nm} onChange={setNm} placeholder="Your name"/>}
         <Inp label="Email" value={em} onChange={setEm} type="email" placeholder="you@company.com"/>
@@ -328,7 +327,7 @@ const Login = ({onLogin}: {onLogin: (user: UserData) => void}) => {
 
 const RegSel = ({onSel}: {onSel: (r: RegionKey) => void}) => (
   <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{background:TK.bg}}>
-    <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4" style={{background:"linear-gradient(135deg,#C8A630,#E8C840)"}}><span className="text-xl font-black" style={{color:"#1A1510"}}>ف</span></div>
+    <img src={logoImg} alt="feloosk" className="h-10 mb-4"/>
     <h2 className="text-lg font-bold mb-1" style={{color:TK.text}}>{LL.selectRegion}</h2>
     <p className="text-xs mb-6 text-center max-w-xs" style={{color:TK.textM}}>{LL.regionNote}</p>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-lg">
@@ -893,7 +892,7 @@ const AiPg = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
   const overdueCustomers=cu.filter(x=>x.ow>0);
   const topExpenseCat=useMemo(()=>{const m: Record<string,number>={};allTx.filter(t=>t.ty==="out").forEach(t=>{m[t.cat]=(m[t.cat]||0)+t.am;});return Object.entries(m).sort((a,b)=>b[1]-a[1]);}, [allTx]);
 
-  const [msgs,setMsgs]=useState<ChatMsg[]>([{r:"ai",t:`Hi! I'm Feloosak AI, your finance assistant for ${R.n} ${R.fl}. I can help with:\n\n• **Cash flow analysis** across your ${books.length} books\n• **VAT & tax** calculations (${R.vl})\n• **${R.auth} compliance** & e-invoicing\n• **Customer tracking** & overdue alerts\n• **Budget insights** & expense analysis\n• **Cash book management** tips\n\nAsk me anything! 💰`}]);
+  const [msgs,setMsgs]=useState<ChatMsg[]>([{r:"ai",t:`Hi! I'm feloosk AI, your finance assistant for ${R.n} ${R.fl}. I can help with:\n\n• **Cash flow analysis** across your ${books.length} books\n• **VAT & tax** calculations (${R.vl})\n• **${R.auth} compliance** & e-invoicing\n• **Customer tracking** & overdue alerts\n• **Budget insights** & expense analysis\n• **Cash book management** tips\n\nAsk me anything! 💰`}]);
   const [inp,setInp]=useState("");const [typ,setTyp]=useState(false);const ref=useRef<HTMLDivElement>(null);
   const [quickQ]=useState(["What's my cash flow?","VAT breakdown","Overdue customers","Top expenses","Compare my books","Tax liability","Budget advice","Invoice tips"]);
 
@@ -1230,8 +1229,8 @@ export default function App(){
   return <div className="flex h-screen overflow-hidden" style={{background:TK.bg,fontFamily:"'DM Sans',system-ui,sans-serif"}}>
     <aside className={`${sb?"w-52":"w-14"} transition-all duration-300 flex flex-col bg-white border-r shrink-0`} style={{borderColor:TK.border}}>
       <div className={`p-3 flex items-center ${sb?"gap-2.5":"justify-center"}`}>
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-black" style={{background:"linear-gradient(135deg,#C8A630,#E8C840)",color:"#1A1510"}}>ف</div>
-        {sb&&<div><p className="text-xs font-bold" style={{color:TK.accent}}>Feloosak</p><p className="text-[8px]" style={{color:TK.textM}}>{R.fl} {R.n} • {R.cur}</p></div>}
+        <img src={logoImg} alt="feloosk" className={`${sb?"h-5":"h-4"} flex-shrink-0`}/>
+        {sb&&<div><p className="text-[8px]" style={{color:TK.textM}}>{R.fl} {R.n} • {R.cur}</p></div>}
       </div>
       <nav className="flex-1 px-1.5 space-y-0.5 mt-1">{nav.map(n=>{const a=pg===n.id;return <button key={n.id} onClick={()=>setPg(n.id)} className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12px] transition-all ${sb?"":"justify-center"}`} style={{background:a?TK.accentBg:"transparent",color:a?TK.accentD:TK.textS,fontWeight:a?700:500}}>
         <span className="text-sm">{n.i}</span>{sb&&<span>{n.l}</span>}

@@ -3,10 +3,11 @@ import { useApp } from '@/hooks/use-app-state';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import logoImg from "@assets/1773682232697_1773682245650.png";
 
 export function Login() {
   const { login } = useApp();
-  const [email, setEmail] = useState('admin@feloosak.com');
+  const [email, setEmail] = useState('admin@feloosk.com');
   const [password, setPassword] = useState('password');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -38,11 +39,8 @@ export function Login() {
         className="w-full max-w-sm px-6 py-8 z-10"
       >
         <div className="flex flex-col items-center mb-10">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-accent to-[#E8C840] shadow-xl shadow-accent/20 flex items-center justify-center mb-4">
-            <span className="text-3xl font-black text-[#1A1510] font-arabic">ف</span>
-          </div>
-          <h1 className="text-3xl font-black text-foreground tracking-tight">Feloosak</h1>
-          <p className="text-sm font-medium text-muted-foreground mt-1">فلوسك — Your Financial Brain</p>
+          <img src={logoImg} alt="feloosk" className="h-10 mb-4"/>
+          <p className="text-sm font-medium text-muted-foreground mt-1">Your Financial Brain</p>
         </div>
 
         <div className="space-y-4">
