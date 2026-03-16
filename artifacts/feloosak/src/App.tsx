@@ -18,18 +18,59 @@ const BOOK_COLORS=["#C8A630","#2680EB","#22A06B","#E34935","#8B5CF6","#E5890A","
 type RegionKey = "EG" | "AE";
 interface CalEvent { e: string; d: string; r: boolean }
 interface V26Item { t: string; d: string }
+interface EInvField { l: string; d: string }
+interface SMETier { max: number; rate: string }
 interface RegionInfo {
   id: string; n: string; ar: string; fl: string; cur: string;
   vr: number; vl: string; auth: string; ct: number; ctT: number;
   eM: boolean; fmt: string; sig: string; arch: number; pc: string; rt: boolean;
   pays: string[]; cal: CalEvent[]; v26: V26Item[] | null;
+  tin?: string; profVat?: number; vatThreshold?: number; wht?: string;
+  eInvModel?: string; eInvFields?: EInvField[];
+  smeTiers?: SMETier[]; smeThreshold?: number;
+  uinLen?: number; socialIns?: string;
+  implSteps?: string[];
 }
 
 const RG: Record<RegionKey, RegionInfo> = {
-  EG:{id:"EG",n:"Egypt",ar:"مصر",fl:"🇪🇬",cur:"EGP",vr:0.14,vl:"VAT 14%",auth:"ETA",ct:0.225,ctT:0,eM:true,fmt:"XML/JSON",sig:"HSM/USB Token",arch:7,pc:"GS1 GPC",rt:true,
+  EG:{id:"EG",n:"Egypt",ar:"مصر",fl:"🇪🇬",cur:"EGP",vr:0.14,vl:"VAT 14%",auth:"ETA",ct:0.225,ctT:0,eM:true,fmt:"XML/JSON",sig:"E-Signature/E-Seal",arch:5,pc:"GS1 GPC",rt:true,
+    tin:"9-digit TIN",profVat:0.10,vatThreshold:500000,wht:"1%–3% on services",
+    eInvModel:"Clearance (real-time ETA validation)",
+    eInvFields:[
+      {l:"UUID",d:"Unique Universal Identifier per invoice"},
+      {l:"Seller & Buyer TIN",d:"Validated 9-digit Tax ID for both parties (B2B)"},
+      {l:"Buyer Info",d:"Name, Address, Phone number"},
+      {l:"Item Codes",d:"GS1 or GPC coding standards for each line item"},
+      {l:"UIN",d:"39-character Unique Identification Number (since Nov 2024)"},
+      {l:"QR Code",d:"Machine-readable code for verification"},
+      {l:"E-Signature",d:"Digital signature via licensed provider (Egypt Trust, Misr Technology)"},
+    ],
+    smeTiers:[{max:250000,rate:"0.4%"},{max:500000,rate:"0.5%"},{max:1000000,rate:"0.75%"},{max:2000000,rate:"1.0%"},{max:3000000,rate:"1.25%"},{max:10000000,rate:"1.5%"},{max:20000000,rate:"1.5%"}],
+    smeThreshold:20000000,uinLen:39,socialIns:"11% employee + 18.75% employer",
+    implSteps:[
+      "Obtain Digital Signature/Seal from licensed provider (Egypt Trust, Misr Technology)",
+      "Register on ETA Portal & set up company profile",
+      "Integrate billing system (API) with ETA SDK for real-time UUID generation",
+      "Map all products/services to GS1/GPC codes",
+      "Enable automated VAT (14%) & WHT (1%–3%) calculation on invoices",
+      "Implement B2B buyer TIN + UIN (39-char) validation",
+    ],
     pays:["Fawry","Vodafone Cash","InstaPay","Paymob","Meeza"],
-    cal:[{e:"Monthly VAT Return",d:"2 months after period",r:true},{e:"Annual Corporate Tax",d:"April 30",r:true},{e:"E-Invoice Wave 9-10",d:"2026",r:false},{e:"Withholding Tax",d:"Quarterly",r:true}],
-    v26:null},
+    cal:[
+      {e:"Monthly VAT Return",d:"Within 30 days after tax period end",r:true},
+      {e:"Annual Corporate Tax Return",d:"April 30",r:true},
+      {e:"Withholding Tax Filing",d:"Quarterly",r:true},
+      {e:"Payroll Tax Reconciliation",d:"Annual",r:true},
+      {e:"E-Receipt (B2C) POS Integration",d:"Mandatory for all sectors",r:false},
+    ],
+    v26:[
+      {t:"Law 5 & 6 of 2025 — SME Incentives",d:"Turnover ≤ EGP 20M: simplified fixed-rate tax (0.4%–1.5% of revenue) instead of 22.5% CIT. Stamp duty exemptions & reduced compliance."},
+      {t:"UIN Validation (Nov 2024)",d:"39-character Unique Identification Number required alongside TIN for all B2B transactions to prevent VAT fraud."},
+      {t:"E-Receipts (B2C) Expansion",d:"Mandatory POS integration with ETA for B2C transactions across all sectors."},
+      {t:"Non-Resident Digital Services",d:"Foreign vendors providing digital/remote services exceeding EGP 500,000 annually must register for VAT with the ETA."},
+      {t:"5-Year Record Retention",d:"All accounting records, invoices & receipts must be retained for 5 years. Offshore storage permitted if accessible to ETA."},
+      {t:"Professional Services VAT 10%",d:"Reduced VAT rate of 10% applies to professional and consultancy services instead of standard 14%."},
+    ]},
   AE:{id:"AE",n:"UAE",ar:"الإمارات",fl:"🇦🇪",cur:"AED",vr:0.05,vl:"VAT 5%",auth:"FTA",ct:0.09,ctT:375000,eM:false,fmt:"Peppol CTC",sig:"Digital Cert",arch:5,pc:"TBD",rt:false,
     pays:["Apple Pay","Google Pay","Tabby","Tamara","PayTabs"],
     cal:[{e:"VAT Return",d:"28 days after period",r:true},{e:"Corporate Tax",d:"9 months after FY",r:true},{e:"Legacy Credit Expiry",d:"Dec 31, 2026",r:false},{e:"E-Invoice Pilot",d:"July 2026",r:false},{e:"E-Invoice Mandatory",d:"2027",r:false}],
@@ -689,7 +730,7 @@ const InvPg = ({R,cu,invoices,reload}: {R: RegionInfo; cu: CustItem[]; invoices:
       </div>
     </div>
     <div className="p-3 rounded-xl text-[11px] font-semibold" style={{background:R.id==="EG"?TK.badBg:TK.infoBg,color:R.id==="EG"?TK.bad:TK.info,border:`1px solid ${R.id==="EG"?`${TK.bad}15`:`${TK.info}15`}`}}>
-      🏛️ {R.id==="EG"?"ETA: Real-time XML/JSON • UUID+QR • GS1 codes • Digital sig • 7yr archival":"FTA: Tax invoices with TRN • Peppol CTC pilot July 2026 • Mandatory 2027 • 5yr archival"}
+      🏛️ {R.id==="EG"?"ETA: Clearance model • XML/JSON • UUID+QR+UIN(39-char) • GS1/GPC codes • E-Signature • 5yr archival • B2C via POS":"FTA: Tax invoices with TRN • Peppol CTC pilot July 2026 • Mandatory 2027 • 5yr archival"}
     </div>
     <div className="grid grid-cols-4 gap-2">{[["VAT",`${(R.vr*100)}%`,TK.accent],["Count",`${sinv.length}`,TK.text],["Unpaid",`${sinv.filter(x=>x.s==="unpaid").length}`,TK.warn],["Archive",`${R.arch}yr`,TK.info]].map(([l,v,cl],i)=><Card key={i} className="p-2.5 text-center"><p className="text-[8px] uppercase font-bold" style={{color:TK.textM}}>{l as string}</p><p className="text-lg font-black" style={{color:cl as string}}>{v as string}</p></Card>)}</div>
     {sinv.length===0?<div className="text-center py-10"><p className="text-3xl mb-2">📄</p><p className="text-sm font-semibold" style={{color:TK.textM}}>No invoices yet</p><p className="text-[11px] mt-1" style={{color:TK.textM}}>Create your first invoice to get started</p></div>
@@ -765,11 +806,16 @@ const AiPg = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
       }
       else if(lo.includes("vat")||lo.includes("ضريبة")){
         const oV=Math.round(tI*R.vr);const iV=Math.round(tO*R.vr);const nV=oV-iV;
-        r=`🧾 **VAT Breakdown (${R.vl})**\n\n• Output VAT (on sales): **${c} ${fmt(oV)}**\n• Input VAT (on purchases): **${c} ${fmt(iV)}**\n• **Net VAT Payable: ${c} ${fmt(nV)}**\n\n${R.id==="EG"?"📅 Filing: Monthly via ETA portal, due 2 months after period end.\n\n💡 **Tip**: Keep all purchase invoices — you can claim input VAT to reduce your liability.":"📅 Filing: Quarterly/monthly via FTA portal, due 28 days after period.\n\n⚠️ **2026 Updates**: 5-year refund deadline now applies. Verify supplier TRN before claiming input VAT."}`;
+        r=`🧾 **VAT Breakdown (${R.vl})**\n\n• Output VAT (on sales): **${c} ${fmt(oV)}**\n• Input VAT (on purchases): **${c} ${fmt(iV)}**\n• **Net VAT Payable: ${c} ${fmt(nV)}**\n\n${R.id==="EG"?"📅 Filing: Monthly via ETA portal, within 30 days after period end.\n\n📋 **Rates**: 14% standard goods/services. **10% on professional/consultancy services.**\n\n⚠️ VAT registration mandatory if annual revenue > EGP 500,000.\n\n💡 **Tip**: Keep all purchase e-invoices (paper NOT accepted). Claim input VAT to reduce liability. WHT of 1%–3% applies on vendor payments.":"📅 Filing: Quarterly/monthly via FTA portal, due 28 days after period.\n\n⚠️ **2026 Updates**: 5-year refund deadline now applies. Verify supplier TRN before claiming input VAT."}`;
       }
       else if(lo.includes("tax")||lo.includes("corporate")||lo.includes("income tax")){
         const ct=R.id==="EG"?Math.round(Math.max(0,bal)*R.ct):Math.round(Math.max(0,bal-R.ctT)*R.ct);
-        r=`🏛️ **Tax Liability (${R.n})**\n\n• Taxable profit: **${c} ${fmt(Math.max(0,bal))}**\n${R.id==="AE"?`• Threshold: ${c} 375,000 (0% below)\n• Rate: 9% above threshold\n`:`• Rate: 22.5% flat\n`}• **Estimated tax: ${c} ${fmt(ct)}**\n\n${R.id==="EG"?"📅 Annual filing by April 30. Quarterly advance payments may apply for large businesses.\n\n💡 Deductible expenses: salaries, rent, depreciation, bad debts (documented).":"📅 Filing: 9 months after financial year end.\n\n💡 Small business relief available if revenue < AED 3M."}`;
+        const smeOk=R.id==="EG"&&tI<=20000000;
+        const smeNote=smeOk?"\n\n💰 **SME Incentive (Law 5 & 6 of 2025)**: Revenue under EGP 20M qualifies for simplified fixed-rate tax (0.4%-1.5% of revenue) instead of 22.5% CIT. Stamp duty exemptions apply.":"";
+        const egTax="📅 Annual filing by April 30. Accounting period: Jan 1 – Dec 31."+smeNote+"\n\n⚠️ **WHT**: 1%-3% withheld on vendor/service payments.\n\n💡 Deductible: salaries, rent, depreciation, bad debts (documented). Keep records 5 years.";
+        const aeTax="📅 Filing: 9 months after financial year end.\n\n💡 Small business relief available if revenue < AED 3M.";
+        const threshLine=R.id==="AE"?"• Threshold: "+c+" 375,000 (0% below)\n• Rate: 9% above threshold\n":"• Standard CIT rate: 22.5% on net profits\n";
+        r="🏛️ **Tax Liability ("+R.n+")**\n\n• Taxable profit: **"+c+" "+fmt(Math.max(0,bal))+"**\n"+threshLine+"• **Estimated CIT: "+c+" "+fmt(ct)+"**\n\n"+(R.id==="EG"?egTax:aeTax);
       }
       else if(lo.includes("overdue")||lo.includes("customer")||lo.includes("owe")||lo.includes("receivable")||lo.includes("عميل")){
         const totalOwed=overdueCustomers.reduce((s,x)=>s+x.ow,0);
@@ -786,7 +832,7 @@ const AiPg = ({R,books,cu}: {R: RegionInfo; books: CashBook[]; cu: CustItem[]}) 
         r=`💰 **Budget & Savings**\n\n• Savings rate: **${savingsRate}%**\n• ${parseFloat(savingsRate)>20?"✅ Excellent!":parseFloat(savingsRate)>10?"⚠️ Fair. Aim for 20%.":"❌ Low. Review spending."}\n\n**Tips for ${R.n}:**\n• Reserve **${(R.vr*100)}%** for VAT\n• Emergency fund: 3-6 months costs\n• ${R.id==="EG"?"T-Bills ~22% yield":"UAE Sukuk 4-5% yield"}`;
       }
       else if(lo.includes("invoice")||lo.includes("فاتورة")){
-        r=`📄 **Invoicing (${R.n})**\n\n**${R.auth} Requirements:**\n• Format: ${R.fmt}\n• Signature: ${R.sig}\n• Archive: ${R.arch} years\n${R.id==="EG"?"• GS1 codes, UUID+QR, real-time ETA":"• TRN required, Peppol CTC pilot July 2026"}\n\n**Tips:**\n• Send within 24h of delivery\n• Follow up at 7, 14, 21 days`;
+        r=`📄 **Invoicing (${R.n})**\n\n**${R.auth} Requirements:**\n• Format: ${R.fmt}\n• Signature: ${R.sig}\n• Archive: ${R.arch} years\n${R.id==="EG"?"• Clearance model: invoice validated by ETA before reaching buyer\n• Mandatory fields: UUID, Seller/Buyer TIN, UIN (39-char), GS1/GPC item codes, QR code\n• Paper invoices NOT accepted for tax deductions\n• B2C: E-Receipts via POS integration mandatory":"• TRN required, Peppol CTC pilot July 2026"}\n\n**Tips:**\n• Send within 24h of delivery\n• Follow up at 7, 14, 21 days\n${R.id==="EG"?"• Validate buyer TIN + UIN before submission\n• Map all items to GS1/GPC codes":""}`;
       }
       else {
         r=`Try asking about:\n• **"Cash flow"** — overview\n• **"VAT breakdown"** — ${R.vl}\n• **"Tax liability"** — corporate tax\n• **"Overdue customers"** — receivables\n• **"Top expenses"** — analysis\n• **"Compare books"** — book comparison\n• **"Budget advice"** — savings tips\n• **"Invoice tips"** — ${R.auth} guide`;
@@ -845,28 +891,96 @@ const CompPg = ({R,books}: {R: RegionInfo; books: CashBook[]}) => {
   const c=R.cur;const tI=allTx.filter(t=>t.ty==="in").reduce((s,t)=>s+t.am,0);const tO=allTx.filter(t=>t.ty==="out").reduce((s,t)=>s+t.am,0);const pr=tI-tO;
   const oV=Math.round(tI*R.vr);const iV=Math.round(tO*R.vr);const nV=oV-iV;
   const ct=R.id==="EG"?Math.round(Math.max(0,pr)*R.ct):Math.round(Math.max(0,pr-R.ctT)*R.ct);
+  const rev=tI;
+  const smeEligible=R.id==="EG"&&R.smeThreshold&&rev<=R.smeThreshold;
+  const smeTier=smeEligible&&R.smeTiers?R.smeTiers.find(t=>rev<=t.max):null;
+  const smeTax=smeTier?Math.round(rev*parseFloat(smeTier.rate)/100):0;
 
   return <div className="space-y-4">
-    <div className="flex items-center justify-between"><div><h1 className="text-lg font-bold" style={{color:TK.text}}>{R.fl} Compliance — {R.n}</h1><p className="text-[10px]" style={{color:TK.textM}}>{R.auth} • {R.vl}</p></div><Badge t={R.eM?"Active":"Pilot"} c={R.eM?TK.ok:TK.warn}/></div>
-    <Card className="p-4"><h3 className="text-sm font-bold mb-1" style={{color:TK.text}}>{LL.vatSum} — {R.vl}</h3>
+    <div className="flex items-center justify-between"><div><h1 className="text-lg font-bold" style={{color:TK.text}}>{R.fl} Compliance — {R.n}</h1><p className="text-[10px]" style={{color:TK.textM}}>{R.auth} • {R.vl} • {R.tin||""}</p></div><Badge t={R.eM?"Active":"Pilot"} c={R.eM?TK.ok:TK.warn}/></div>
+
+    {R.id==="EG"&&<Card className="p-4" style={{background:TK.infoBg,borderColor:`${TK.info}20`}}>
+      <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5" style={{color:TK.info}}>🏛️ Core Tax Identifiers</h3>
+      <div className="grid grid-cols-2 gap-2">
+        {[["Taxpayer ID (TIN)",R.tin||""],["VAT Threshold","EGP 500,000/yr"],["WHT on Services",R.wht||""],["Prof. Services VAT",`${(R.profVat||0)*100}%`],["E-Signature","Egypt Trust / Misr Tech"],["Record Retention",`${R.arch} years`]].map(([l,v],i)=>
+          <div key={i} className="p-2 rounded-lg bg-white"><p className="text-[9px] font-bold" style={{color:TK.info}}>{l}</p><p className="text-[11px] font-semibold" style={{color:TK.text}}>{v}</p></div>
+        )}
+      </div>
+    </Card>}
+
+    <Card className="p-4"><h3 className="text-sm font-bold mb-1" style={{color:TK.text}}>{LL.vatSum} — {R.vl}{R.id==="EG"?" (Professional: 10%)":""}</h3>
       <div className="grid grid-cols-3 gap-2 mt-3">{[[LL.outVat,oV,TK.ok,TK.okBg],[LL.inVat,iV,TK.bad,TK.badBg],[LL.netVat,nV,TK.accent,TK.accentBg]].map(([l,v,cl,bg],i)=>
         <div key={i} className="p-3 rounded-xl text-center" style={{background:bg as string}}><p className="text-[9px] font-bold" style={{color:cl as string}}>{l as string}</p><p className="text-base font-black mt-0.5" style={{color:TK.text}}>{c} {fmt(v as number)}</p></div>
-      )}</div></Card>
-    <Card className="p-4"><h3 className="text-sm font-bold mb-1" style={{color:TK.text}}>{LL.corpTax} — {R.id==="EG"?"22.5% flat":"0%→9% (AED 375K)"}</h3>
+      )}</div>
+      {R.id==="EG"&&<p className="text-[9px] mt-2" style={{color:TK.textM}}>Standard VAT 14% on goods/services. Professional/consultancy services taxed at 10%. Monthly filing within 30 days after period end.</p>}
+    </Card>
+
+    <Card className="p-4"><h3 className="text-sm font-bold mb-1" style={{color:TK.text}}>{LL.corpTax} — {R.id==="EG"?"22.5% on net profits":"0%→9% (AED 375K)"}</h3>
       <div className="grid grid-cols-2 gap-2 mt-3">
         <div className="p-3 rounded-xl" style={{background:TK.muted}}><p className="text-[9px] font-bold" style={{color:TK.textM}}>Taxable Profit</p><p className="text-base font-black" style={{color:TK.text}}>{c} {fmt(Math.max(0,pr))}</p>{R.id==="AE"&&pr<=R.ctT&&<p className="text-[9px] mt-0.5" style={{color:TK.ok}}>Below threshold ✓</p>}</div>
-        <div className="p-3 rounded-xl" style={{background:TK.accentBg}}><p className="text-[9px] font-bold" style={{color:TK.accent}}>Est. Tax</p><p className="text-base font-black" style={{color:TK.accent}}>{c} {fmt(ct)}</p></div>
-      </div></Card>
-    {R.id==="AE"&&R.v26&&<Card className="p-4" style={{background:TK.warnBg,borderColor:`${TK.warn}20`}}>
-      <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5" style={{color:TK.warn}}>⚠️ UAE 2026 VAT Amendments</h3>
+        <div className="p-3 rounded-xl" style={{background:TK.accentBg}}><p className="text-[9px] font-bold" style={{color:TK.accent}}>Est. CIT (22.5%)</p><p className="text-base font-black" style={{color:TK.accent}}>{c} {fmt(ct)}</p></div>
+      </div>
+      {R.id==="EG"&&<p className="text-[9px] mt-2" style={{color:TK.textM}}>Annual return due April 30. Accounting period: Jan 1 – Dec 31. WHT {R.wht} deducted on vendor payments.</p>}
+    </Card>
+
+    {R.id==="EG"&&smeEligible&&<Card className="p-4" style={{background:TK.okBg,borderColor:`${TK.ok}20`}}>
+      <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5" style={{color:TK.ok}}>💰 SME Simplified Tax (Law 5 & 6 of 2025)</h3>
+      <p className="text-[10px] mb-2" style={{color:TK.textM}}>Your revenue EGP {fmt(rev)} qualifies for simplified fixed-rate tax instead of 22.5% CIT.</p>
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <div className="p-2.5 rounded-xl bg-white"><p className="text-[9px] font-bold" style={{color:TK.ok}}>SME Tax Rate</p><p className="text-base font-black" style={{color:TK.ok}}>{smeTier?.rate||"—"}</p></div>
+        <div className="p-2.5 rounded-xl bg-white"><p className="text-[9px] font-bold" style={{color:TK.ok}}>Est. SME Tax</p><p className="text-base font-black" style={{color:TK.ok}}>{c} {fmt(smeTax)}</p></div>
+      </div>
+      <div className="p-2 rounded-lg bg-white"><p className="text-[9px] font-bold mb-1" style={{color:TK.text}}>SME Tax Tiers (Turnover ≤ EGP 20M)</p>
+        <div className="space-y-0.5">{R.smeTiers?.map((t,i)=><div key={i} className="flex justify-between text-[9px]" style={{color:rev<=t.max&&(!R.smeTiers?.[i-1]||rev>R.smeTiers[i-1].max)?TK.ok:TK.textM}}>
+          <span>≤ EGP {(t.max/1000000).toFixed(1)}M</span><span className="font-bold">{t.rate} of revenue</span>
+        </div>)}</div>
+      </div>
+      <p className="text-[9px] mt-2" style={{color:TK.textM}}>Savings vs CIT: <strong style={{color:TK.ok}}>EGP {fmt(ct-smeTax)}</strong>. Also exempt from stamp duty with reduced compliance obligations.</p>
+    </Card>}
+
+    {R.id==="EG"&&R.eInvFields&&<Card className="p-4">
+      <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5" style={{color:TK.text}}>🧾 E-Invoicing Requirements (B2B & B2G)</h3>
+      <p className="text-[10px] mb-2" style={{color:TK.textM}}>Mandatory since April 2023. {R.eInvModel}. Paper invoices NOT recognized for tax deductions.</p>
+      <div className="grid grid-cols-2 gap-1.5 mb-2">
+        {[["Format",R.fmt],["Model","Clearance"],["Coding",R.pc],["B2C","E-Receipts (POS)"]].map(([l,v],i)=>
+          <div key={i} className="p-2 rounded-lg" style={{background:TK.muted}}><p className="text-[9px] font-bold" style={{color:TK.textM}}>{l}</p><p className="text-[11px] font-semibold" style={{color:TK.text}}>{v}</p></div>
+        )}
+      </div>
+      <p className="text-[9px] font-bold mb-1" style={{color:TK.text}}>Mandatory Invoice Fields:</p>
+      <div className="space-y-1">{R.eInvFields.map((f,i)=>
+        <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{background:TK.muted}}>
+          <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{background:TK.accentBg,color:TK.accent}}>{i+1}</span>
+          <div><p className="text-[10px] font-bold" style={{color:TK.text}}>{f.l}</p><p className="text-[9px]" style={{color:TK.textM}}>{f.d}</p></div>
+        </div>
+      )}</div>
+    </Card>}
+
+    {R.v26&&<Card className="p-4" style={{background:R.id==="EG"?TK.accentBg:TK.warnBg,borderColor:`${R.id==="EG"?TK.accent:TK.warn}20`}}>
+      <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5" style={{color:R.id==="EG"?TK.accent:TK.warn}}>⚠️ {R.id==="EG"?"Egypt 2025–2026 Legal Updates":"UAE 2026 VAT Amendments"}</h3>
       <div className="space-y-1.5">{R.v26.map((a,i)=><div key={i} className="p-2.5 rounded-xl bg-white"><p className="text-[11px] font-bold" style={{color:TK.text}}>{a.t}</p><p className="text-[10px] mt-0.5" style={{color:TK.textM}}>{a.d}</p></div>)}</div>
     </Card>}
+
+    {R.id==="EG"&&R.implSteps&&<Card className="p-4">
+      <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5" style={{color:TK.text}}>🚀 Implementation Checklist</h3>
+      <p className="text-[10px] mb-2" style={{color:TK.textM}}>Steps to set up ETA-compliant billing system:</p>
+      <div className="space-y-1.5">{R.implSteps.map((s,i)=>
+        <div key={i} className="flex items-start gap-2 p-2.5 rounded-xl" style={{background:TK.muted}}>
+          <span className="text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{background:TK.accentBg,color:TK.accent}}>{i+1}</span>
+          <p className="text-[10px] font-medium" style={{color:TK.text}}>{s}</p>
+        </div>
+      )}</div>
+    </Card>}
+
     <Card className="p-4"><h3 className="text-sm font-bold mb-3 flex items-center gap-1.5" style={{color:TK.text}}>📅 {LL.taxCal}</h3>
       <div className="space-y-1.5">{R.cal.map((ev,i)=><div key={i} className="flex items-center gap-2.5 p-2.5 rounded-xl" style={{background:TK.muted}}>
         <span className="text-xs">{ev.r?"🔄":"⏰"}</span>
         <div className="flex-1"><p className="text-[11px] font-semibold" style={{color:TK.text}}>{ev.e}</p><p className="text-[10px]" style={{color:TK.textM}}>Deadline: {ev.d}</p></div>
         <Badge t={ev.r?"Recurring":"One-time"} c={ev.r?TK.info:TK.warn}/>
       </div>)}</div></Card>
+
+    {R.id==="EG"&&<Card className="p-3" style={{background:TK.warnBg,borderColor:`${TK.warn}20`}}>
+      <p className="text-[9px]" style={{color:TK.warn}}>⚠️ <strong>Disclaimer:</strong> Tax regulations in Egypt are updated frequently (especially with 2025 laws). Engage a local Egyptian tax advisor to ensure full compliance. Data reflects laws as of 2025/2026.</p>
+    </Card>}
   </div>;
 };
 
@@ -888,7 +1002,7 @@ const SetPg = ({R,user,setReg,onLogout}: {R: RegionInfo; user: UserData; setReg:
         <Badge t={R.eM?"Active":"Pilot"} c={R.eM?TK.ok:TK.warn}/></div>
     </Card>
     <Card className="p-4"><h3 className="text-xs font-bold mb-3" style={{color:TK.text}}>🇪🇬 vs 🇦🇪 Comparison</h3>
-      <div className="space-y-1">{[["VAT","14%","5%"],["Corp Tax","22.5% flat","0%→9%"],["E-Invoice","ETA Mandatory","FTA Pilot 2026"],["Archival","7 years","5 years"],["Social Ins","11%+18.75%","5%+12.5% (nationals)"]].map(([l,eg,ae],i)=>
+      <div className="space-y-1">{[["VAT","14% (Prof: 10%)","5%"],["Corp Tax","22.5% (SME: 0.4–1.5%)","0%→9%"],["E-Invoice","ETA Mandatory","FTA Pilot 2026"],["Archival","5 years","5 years"],["WHT","1%–3% services","0%"],["Social Ins","11%+18.75%","5%+12.5% (nationals)"]].map(([l,eg,ae],i)=>
         <div key={i} className="grid grid-cols-3 text-[10px] p-1.5 rounded" style={{background:i%2===0?TK.muted:"transparent"}}>
           <span className="font-bold" style={{color:TK.text}}>{l}</span><span style={{color:R.id==="EG"?TK.accent:TK.textM}}>{eg}</span><span style={{color:R.id==="AE"?TK.accent:TK.textM}}>{ae}</span>
         </div>)}</div></Card>
