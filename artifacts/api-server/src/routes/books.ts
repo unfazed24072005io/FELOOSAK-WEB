@@ -30,7 +30,7 @@ router.post("/", async (req, res) => {
       icon: icon || "🏪", color: color || "#C8A630",
     }).returning();
     await db.insert(bookMembersTable).values({
-      bookId: book.id, name: "Admin (You)", email: "admin@feloosak.com",
+      bookId: book.id, name: "Admin (You)", email: "admin@felosak.com",
       role: "admin", avatar: "A",
     });
     const members = await db.select().from(bookMembersTable).where(eq(bookMembersTable.bookId, book.id));

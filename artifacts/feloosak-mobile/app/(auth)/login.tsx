@@ -43,7 +43,7 @@ export default function LoginScreen() {
     <View style={[styles.container, { paddingBottom: insets.bottom + 16 }]}>
       <View style={styles.header}>
         <View style={styles.logoRow}>
-          <Text style={styles.brandName}>feloosk</Text>
+          <Text style={styles.brandName}>felosak</Text>
         </View>
         <Text style={styles.title}>Welcome back</Text>
         <Text style={styles.subtitle}>Sign in to manage your finances</Text>
@@ -106,7 +106,7 @@ export default function LoginScreen() {
         </Link>
       </View>
 
-      <Text style={styles.demoHint}>Demo: admin@feloosk.com / admin123</Text>
+      <Text style={styles.demoHint}>Demo: admin@felosak.com / admin123</Text>
     </View>
   );
 }

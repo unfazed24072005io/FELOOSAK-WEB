@@ -3,11 +3,11 @@ import { useApp } from '@/hooks/use-app-state';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import logoImg from "@assets/1773682232697_1773682245650.png";
+import logoImg from "@assets/1773704760591_1773708627320.png";
 
 export function Login() {
   const { login } = useApp();
-  const [email, setEmail] = useState('admin@feloosk.com');
+  const [email, setEmail] = useState('admin@felosak.com');
   const [password, setPassword] = useState('password');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -39,7 +39,7 @@ export function Login() {
         className="w-full max-w-sm px-6 py-8 z-10"
       >
         <div className="flex flex-col items-center mb-10">
-          <img src={logoImg} alt="feloosk" className="h-10 mb-4"/>
+          <img src={logoImg} alt="felosak" className="h-10 mb-4"/>
           <p className="text-sm font-medium text-muted-foreground mt-1">Your Financial Brain</p>
         </div>
 

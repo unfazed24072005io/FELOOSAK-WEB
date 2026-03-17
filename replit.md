@@ -22,8 +22,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
 │   ├── api-server/         # Express API server
-│   ├── feloosak/           # Feloosak finance app (React+Vite)
-│   └── feloosak-mobile/    # Feloosak mobile app (Expo React Native)
+│   ├── feloosak/           # felosak finance app (React+Vite)
+│   └── feloosak-mobile/    # felosak mobile app (Expo React Native)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -54,17 +54,17 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 
 ### `artifacts/feloosak` (`@workspace/feloosak`)
 
-feloosk — AI-powered finance super-app for Egypt & UAE. React+Vite SPA with Tailwind CSS. Website: www.feloosk.com · Email: support@feloosk.com
+felosak — AI-powered finance super-app for Egypt & UAE. React+Vite SPA with Tailwind CSS. Website: www.felosak.com · Email: support@felosak.com
 
 **Key Features:**
 - Login screen with split-panel layout (dark branding panel + sign-in form)
 - Region selector (Egypt / UAE) with different tax rules, currencies, compliance
 - Dashboard with Recharts (AreaChart monthly trend, PieChart top categories), stat cards, AI insight card, recent transactions
 - Cash In/Out page with tabs (All, Cash In, Cash Out, Customers), add entry modal with date picker, transaction search/filter, delete on hover, customer trust ratings, full customer CRUD (add/edit/delete with email, address, TIN, invoice count)
-- Invoices page with status filter tabs (All/Draft/Unpaid/Overdue/Sent/Paid), revenue summary stats, advanced invoice builder (dynamic date, auto-calculated due date, % or flat discount per line, WHT toggle for Egypt, Seller/Buyer TIN, printable preview, draft save, total in words, signature pad — draw or upload), edit existing invoices (loads all fields including date/items/signature), mark as paid/sent, delete with confirmation
-- AI Insights page with variance analysis table and AI chat (keyword-based responses about VAT/tax/profit)
-- Compliance page with VAT summary, corporate tax calculator, UAE 2026 amendments, tax calendar
-- Settings page with region switcher, compliance badges, Egypt vs UAE comparison table, logout
+- Invoices page with status filter tabs (All/Draft/Unpaid/Overdue/Sent/Paid), revenue summary stats, advanced invoice builder (dynamic date, auto-calculated due date, % or flat discount per line, WHT toggle for Egypt, Seller/Buyer TIN, printable preview, draft save, total in words, signature pad — draw or upload, inline add-customer, editable invoice number, PDF download, WhatsApp share, felosak branding watermark), edit existing invoices (loads all fields including date/items/signature), mark as paid/sent, delete with confirmation
+- AI Insights page with financial health score (circular gauge), smart anomaly alerts, 30-day cash flow predictions, recurring transaction detection, tax optimization tips, variance analysis table and AI chat (keyword-based responses for health/predictions/anomalies/recurring/tax savings)
+- Compliance page with VAT summary, corporate tax calculator, SME simplified tax, UAE 2026 amendments, e-invoicing requirements, tax calendar
+- Settings page with profile card (editable name), business profile section (business name/phone/address/tax ID), payment details section (bank/IBAN/SWIFT/payment link), region switcher, Egypt vs UAE tax comparison, danger zone (account deletion), logout
 
 **Design:**
 - Design tokens: bg=#F6F5F0, accent=#C8A630, ok=#22A06B, bad=#E34935, warn=#E5890A, info=#2680EB
@@ -84,10 +84,10 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- Auth: `src/routes/auth.ts` — login/register/logout/me/profile (supports name, region, bankName, bankAccount, bankIban, bankSwift, paymentLink, businessName, businessPhone, businessAddress, taxId)
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+- Demo creds: admin@felosak.com / admin123
 
 ### `lib/db` (`@workspace/db`)
 
@@ -95,7 +95,9 @@ Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client insta
 
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
 - `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
+- `src/schema/users.ts` — users table (email, password, name, region, avatar, bankName, bankAccount, bankIban, bankSwift, paymentLink, businessName, businessPhone, businessAddress, taxId)
+- `src/schema/invoices.ts` — invoices table (invoiceNo, invoiceDate, dueDate, status, items, signature, sellerTin, buyerTin, vatRate, whtRate, currency, etc.)
+- `src/schema/customers.ts` — customers table (name, phone, email, address, tin, owed, paid, trust)
 - `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
 
@@ -120,11 +122,11 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 
 ### `artifacts/feloosak-mobile` (`@workspace/feloosak-mobile`)
 
-Feloosak Mobile — Expo React Native app for iOS/Android. Connects to the same Express API backend as the web app.
+felosak Mobile — Expo React Native app for iOS/Android. Connects to the same Express API backend as the web app.
 
 **Key Features:**
 - 4-tab navigation: Books, Customers, Invoices, Settings
-- Auth flow: Login/Register modal with Feloosak branding
+- Auth flow: Login/Register modal with felosak branding
 - Cash Books dashboard with balance summary, business/personal filter, create book
 - Book detail screen with transactions list, add transaction form sheet
 - Customers list with trust ratings, owed/paid balances, add customer form sheet

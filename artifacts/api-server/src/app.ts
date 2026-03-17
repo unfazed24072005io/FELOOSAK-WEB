@@ -38,7 +38,7 @@ app.use(session({
     createTableIfMissing: true,
     tableName: "session",
   }),
-  secret: process.env.SESSION_SECRET || (process.env.DATABASE_URL ? "feloosak-dev-" + process.env.DATABASE_URL.slice(-8) : "feloosak-dev-fallback"),
+  secret: process.env.SESSION_SECRET || (process.env.DATABASE_URL ? "felosak-dev-" + process.env.DATABASE_URL.slice(-8) : "felosak-dev-fallback"),
   resave: false,
   saveUninitialized: false,
   cookie: {

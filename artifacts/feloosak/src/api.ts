@@ -22,6 +22,7 @@ export const api = {
     me: () => request("/auth/me"),
     logout: () => request("/auth/logout", { method: "POST" }),
     updateProfile: (data: any) => request("/auth/profile", { method: "PUT", body: JSON.stringify(data) }),
+    deleteAccount: () => request("/auth/delete-account", { method: "DELETE" }),
   },
   books: {
     list: () => request("/books"),

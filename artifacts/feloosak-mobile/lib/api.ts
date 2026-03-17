@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || "";
 const BASE_URL = DOMAIN ? `https://${DOMAIN}/api-server/api` : "/api-server/api";
-const SESSION_KEY = "feloosak_session_cookie";
+const SESSION_KEY = "felosak_session_cookie";
 
 let sessionCookie: string | null = null;
 

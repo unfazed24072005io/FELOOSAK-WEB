@@ -84,7 +84,7 @@ router.put("/profile", async (req, res) => {
     if (!req.session.userId) {
       return res.status(401).json({ error: "Not authenticated" });
     }
-    const { name, region, bankName, bankAccount, bankIban, bankSwift, paymentLink, businessName, businessPhone } = req.body;
+    const { name, region, bankName, bankAccount, bankIban, bankSwift, paymentLink, businessName, businessPhone, businessAddress, taxId } = req.body;
     const updates: any = {};
     if (name) updates.name = name;
     if (region) updates.region = region;
@@ -95,10 +95,27 @@ router.put("/profile", async (req, res) => {
     if (paymentLink !== undefined) updates.paymentLink = paymentLink;
     if (businessName !== undefined) updates.businessName = businessName;
     if (businessPhone !== undefined) updates.businessPhone = businessPhone;
+    if (businessAddress !== undefined) updates.businessAddress = businessAddress;
+    if (taxId !== undefined) updates.taxId = taxId;
     updates.updatedAt = new Date();
     const [user] = await db.update(usersTable).set(updates).where(eq(usersTable.id, req.session.userId)).returning();
     const { password: _, ...safe } = user;
     res.json({ user: safe });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.delete("/delete-account", async (req, res) => {
+  try {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    const userId = req.session.userId;
+    await db.delete(usersTable).where(eq(usersTable.id, userId));
+    req.session.destroy(() => {
+      res.json({ ok: true });
+    });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

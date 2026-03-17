@@ -224,7 +224,7 @@ export default function SettingsScreen() {
           <Text style={styles.logoutText}>Sign Out</Text>
         </Pressable>
 
-        <Text style={styles.footerText}>feloosk 2026 · www.feloosk.com</Text>
+        <Text style={styles.footerText}>felosak 2026 · www.felosak.com</Text>
       </ScrollView>
     </View>
   );

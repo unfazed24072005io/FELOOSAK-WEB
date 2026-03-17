@@ -7,15 +7,18 @@ import { eq } from "drizzle-orm";
 const router = Router();
 
 router.post("/seed", async (req, res) => {
+  if (process.env.NODE_ENV === "production") {
+    return res.status(403).json({ error: "Seed not available in production" });
+  }
   try {
-    const existing = await db.select().from(usersTable).where(eq(usersTable.email, "admin@feloosak.com")).limit(1);
+    const existing = await db.select().from(usersTable).where(eq(usersTable.email, "admin@felosak.com")).limit(1);
     if (existing.length > 0) {
       return res.json({ message: "Already seeded", userId: existing[0].id });
     }
 
     const hashed = await bcrypt.hash("admin123", 10);
     const [user] = await db.insert(usersTable).values({
-      email: "admin@feloosak.com", password: hashed, name: "Admin",
+      email: "admin@felosak.com", password: hashed, name: "Admin",
       region: "EG", avatar: "A",
     }).returning();
 
@@ -33,13 +36,13 @@ router.post("/seed", async (req, res) => {
     }));
 
     await db.insert(bookMembersTable).values([
-      { bookId: createdBooks[0].id, name: "Admin (You)", email: "admin@feloosak.com", role: "admin", avatar: "A" },
+      { bookId: createdBooks[0].id, name: "Admin (You)", email: "admin@felosak.com", role: "admin", avatar: "A" },
       { bookId: createdBooks[0].id, name: "Ahmed Hassan", email: "ahmed@shop.com", role: "editor", avatar: "AH" },
       { bookId: createdBooks[0].id, name: "Sara Viewer", email: "sara@shop.com", role: "viewer", avatar: "SV" },
-      { bookId: createdBooks[1].id, name: "Admin (You)", email: "admin@feloosak.com", role: "admin", avatar: "A" },
-      { bookId: createdBooks[2].id, name: "Admin (You)", email: "admin@feloosak.com", role: "admin", avatar: "A" },
-      { bookId: createdBooks[3].id, name: "Admin (You)", email: "admin@feloosak.com", role: "admin", avatar: "A" },
-      { bookId: createdBooks[4].id, name: "Admin (You)", email: "admin@feloosak.com", role: "admin", avatar: "A" },
+      { bookId: createdBooks[1].id, name: "Admin (You)", email: "admin@felosak.com", role: "admin", avatar: "A" },
+      { bookId: createdBooks[2].id, name: "Admin (You)", email: "admin@felosak.com", role: "admin", avatar: "A" },
+      { bookId: createdBooks[3].id, name: "Admin (You)", email: "admin@felosak.com", role: "admin", avatar: "A" },
+      { bookId: createdBooks[4].id, name: "Admin (You)", email: "admin@felosak.com", role: "admin", avatar: "A" },
     ]);
 
     const txData = [

@@ -17,6 +17,8 @@ export const usersTable = pgTable("users", {
   paymentLink: text("payment_link"),
   businessName: varchar("business_name", { length: 255 }),
   businessPhone: varchar("business_phone", { length: 32 }),
+  businessAddress: text("business_address"),
+  taxId: varchar("tax_id", { length: 64 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
