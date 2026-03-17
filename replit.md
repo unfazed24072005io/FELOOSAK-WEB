@@ -57,14 +57,15 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 felosak — AI-powered finance super-app for Egypt & UAE. React+Vite SPA with Tailwind CSS. Website: www.felosak.com · Email: support@felosak.com
 
 **Key Features:**
-- Login screen with split-panel layout (dark branding panel + sign-in form)
+- Marketing website landing page (FelosakWebsite component) with hero, features grid, region-specific compliance, testimonials, download section, FAQ, CTA, footer — navigates to login via "Sign In" / "Get Started Free"
+- Login screen with split-panel layout (dark branding panel + sign-in form) and back-to-website link
 - Region selector (Egypt / UAE) with different tax rules, currencies, compliance
 - Dashboard with Recharts (AreaChart monthly trend, PieChart top categories), stat cards, AI insight card, recent transactions
 - Cash In/Out page with tabs (All, Cash In, Cash Out, Customers), add entry modal with date picker, transaction search/filter, delete on hover, customer trust ratings, full customer CRUD (add/edit/delete with email, address, TIN, invoice count)
 - Invoices page with status filter tabs (All/Draft/Unpaid/Overdue/Sent/Paid), revenue summary stats, advanced invoice builder (dynamic date, auto-calculated due date, % or flat discount per line, WHT toggle for Egypt, Seller/Buyer TIN, printable preview, draft save, total in words, signature pad — draw or upload, inline add-customer, editable invoice number, PDF download, WhatsApp share, felosak branding watermark), edit existing invoices (loads all fields including date/items/signature), mark as paid/sent, delete with confirmation
 - AI Insights page with financial health score (circular gauge), smart anomaly alerts, 30-day cash flow predictions, recurring transaction detection, tax optimization tips, variance analysis table and AI chat (keyword-based responses for health/predictions/anomalies/recurring/tax savings)
 - Compliance page with VAT summary, corporate tax calculator, SME simplified tax, UAE 2026 amendments, e-invoicing requirements, tax calendar
-- Settings page with profile card (editable name), business profile section (business name/phone/address/tax ID), payment details section (bank/IBAN/SWIFT/payment link), region switcher, Egypt vs UAE tax comparison, danger zone (account deletion), logout
+- Settings page with profile card (editable name), region-specific tax summary (shows only selected region's VAT/Corp Tax/E-Invoice/WHT/Archival/Social Ins), business profile section (business name/phone/address/tax ID), payment details section (bank/IBAN/SWIFT/payment link), danger zone (working account deletion), logout
 
 **Design:**
 - Design tokens: bg=#F6F5F0, accent=#C8A630, ok=#22A06B, bad=#E34935, warn=#E5890A, info=#2680EB

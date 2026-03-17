@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { api } from "./api";
 import logoImg from "@assets/1773704760591_1773708627320.png";
+import FelosakWebsite from "./Website";
 
 const TK = {
   bg:"#F6F5F0",card:"#FFFFFF",muted:"#FAF9F7",border:"#E8E6E1",borderL:"#F0EDE8",
@@ -267,7 +268,7 @@ const exportPDF=(book: CashBook, cur: string, reg: RegionKey)=>{
   w.document.close();
 };
 
-const Login = ({onLogin}: {onLogin: (user: UserData) => void}) => {
+const Login = ({onLogin, onBack}: {onLogin: (user: UserData) => void; onBack?: () => void}) => {
   const [mode,setMode]=useState<"login"|"register">("login");
   const [em,setEm]=useState("");
   const [pw,setPw]=useState("");
@@ -297,6 +298,7 @@ const Login = ({onLogin}: {onLogin: (user: UserData) => void}) => {
     <div className="hidden lg:flex lg:w-[44%] flex-col justify-between p-10 relative overflow-hidden" style={{background:"linear-gradient(145deg,#1A1510,#2C2315,#3D2E18)"}}>
       <div className="flex items-center gap-3">
         <img src={logoImg} alt="felosak" className="h-8" style={{filter:"brightness(0) invert(1)"}}/>
+        {onBack&&<button onClick={onBack} className="text-[10px] font-semibold px-3 py-1 rounded-full" style={{background:"#C8A63020",color:"#C8A630"}}>← Website</button>}
       </div>
       <div>
         <h2 className="text-3xl font-black leading-tight text-white mb-3">The financial<br/>brain for every<br/>MENA business</h2>
@@ -310,8 +312,9 @@ const Login = ({onLogin}: {onLogin: (user: UserData) => void}) => {
     </div>
     <div className="flex-1 flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <div className="lg:hidden flex items-center gap-2 mb-6">
+        <div className="lg:hidden flex items-center justify-between mb-6">
           <img src={logoImg} alt="felosak" className="h-6"/>
+          {onBack&&<button onClick={onBack} className="text-[11px] font-semibold" style={{color:TK.textM}}>← Back</button>}
         </div>
         <h1 className="text-xl font-black mb-0.5" style={{color:TK.text}}>{mode==="login"?"Sign in":"Create account"}</h1>
         <p className="text-xs mb-6" style={{color:TK.textM}}>{mode==="login"?"Enter your credentials to continue":"Join felosak — free forever"}</p>
@@ -1594,11 +1597,8 @@ const CompPg = ({R,books}: {R: RegionInfo; books: CashBook[]}) => {
   </div>;
 };
 
-const SetPg = ({R,user,setReg,onLogout,onUserUpdate}: {R: RegionInfo; user: UserData; setReg: (r: RegionKey) => void; onLogout: () => void; onUserUpdate: (u: UserData) => void}) => {
-  const handleRegion=async(r: RegionKey)=>{
-    try { await api.auth.updateProfile({ region: r }); setReg(r); } catch(e) { console.error(e); }
-  };
-  const [section,setSection]=useState<"profile"|"business"|"bank"|"compare"|null>(null);
+const SetPg = ({R,user,onLogout,onUserUpdate}: {R: RegionInfo; user: UserData; onLogout: () => void; onUserUpdate: (u: UserData) => void}) => {
+  const [section,setSection]=useState<"profile"|"business"|"bank"|null>(null);
   const [pName,setPName]=useState(user.name||"");
   const [bName,setBName]=useState(user.bankName||"");
   const [bAcct,setBAcct]=useState(user.bankAccount||"");
@@ -1648,11 +1648,18 @@ const SetPg = ({R,user,setReg,onLogout,onUserUpdate}: {R: RegionInfo; user: User
     </Card>
 
     <Card className="p-4">
-      <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:`${TK.accent}12`}}>📍</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>{LL.region}</p><p className="text-[10px]" style={{color:TK.textM}}>{R.fl} {R.n} • {R.auth} • {R.vl}</p></div></div>
-        <div className="flex rounded-xl overflow-hidden" style={{border:`1px solid ${TK.border}`}}>{(["EG","AE"] as RegionKey[]).map(r=><button key={r} onClick={()=>handleRegion(r)} className="px-3 py-1.5 text-[11px] font-bold" style={{background:R.id===r?TK.accent:"transparent",color:R.id===r?"#fff":TK.textM}}>{RG[r].fl} {r}</button>)}</div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg" style={{background:`${TK.accent}12`}}>{R.fl}</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>{R.n}</p><p className="text-[10px]" style={{color:TK.textM}}>{R.auth} • {R.vl} • {R.cur}</p></div></div>
+        <Badge t={R.eM?"Compliant":"Pilot"} c={R.eM?TK.ok:TK.warn}/>
       </div>
-      <div className="flex items-center justify-between mt-3 pt-3" style={{borderTop:`1px solid ${TK.borderL}`}}><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:`${TK.ok}12`}}>🛡</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>{R.auth}</p><p className="text-[10px]" style={{color:TK.textM}}>{R.fmt} • {R.eM?"Mandatory":"Pilot"}</p></div></div>
-        <Badge t={R.eM?"Active":"Pilot"} c={R.eM?TK.ok:TK.warn}/></div>
+      <div className="mt-3 pt-3 space-y-1.5" style={{borderTop:`1px solid ${TK.borderL}`}}>
+        {(R.id==="EG"?[["VAT","14% (Professional: 10%)"],["Corp Tax","22.5% (SME: 0.4%–1.5%)"],["E-Invoice","ETA — Mandatory (real-time clearance)"],["WHT","1%–3% on services"],["Archival","5 years"],["Social Ins","11% + 18.75%"]]:[["VAT","5% (Zero-rate & exempt handling)"],["Corp Tax","0% up to AED 375K, then 9%"],["E-Invoice","FTA — Pilot 2026 (Peppol CTC ready)"],["WHT","0%"],["Archival","5 years"],["Social Ins","5% + 12.5% (nationals)"]]).map(([label,val],i)=>
+          <div key={i} className="flex justify-between items-center py-1.5 px-2 rounded-lg text-[10px]" style={{background:i%2===0?TK.muted:"transparent"}}>
+            <span className="font-bold" style={{color:TK.text}}>{label}</span>
+            <span className="font-semibold" style={{color:TK.accent}}>{val}</span>
+          </div>
+        )}
+      </div>
     </Card>
 
     <Card className="p-4">
@@ -1694,18 +1701,6 @@ const SetPg = ({R,user,setReg,onLogout,onUserUpdate}: {R: RegionInfo; user: User
       </div>}
     </Card>
 
-    <Card className="p-4 cursor-pointer hover:shadow-md transition-all" onClick={()=>setSection(section==="compare"?null:"compare")}>
-      <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:`${TK.warn}12`}}>⚖️</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>🇪🇬 vs 🇦🇪 Tax Comparison</p><p className="text-[10px]" style={{color:TK.textM}}>Compare tax rules between Egypt & UAE</p></div></div>
-        <span className="text-xs" style={{color:TK.textM}}>{section==="compare"?"▲":"▼"}</span>
-      </div>
-      {section==="compare"&&<div className="mt-3 pt-3 space-y-1" style={{borderTop:`1px solid ${TK.borderL}`}} onClick={e=>e.stopPropagation()}>
-        {[["VAT","14% (Prof: 10%)","5%"],["Corp Tax","22.5% (SME: 0.4–1.5%)","0%→9%"],["E-Invoice","ETA Mandatory","FTA Pilot 2026"],["Archival","5 years","5 years"],["WHT","1%–3% services","0%"],["Social Ins","11%+18.75%","5%+12.5% (nationals)"]].map(([l,eg,ae],i)=>
-          <div key={i} className="grid grid-cols-3 text-[10px] p-1.5 rounded" style={{background:i%2===0?TK.muted:"transparent"}}>
-            <span className="font-bold" style={{color:TK.text}}>{l}</span><span style={{color:R.id==="EG"?TK.accent:TK.textM}}>{eg}</span><span style={{color:R.id==="AE"?TK.accent:TK.textM}}>{ae}</span>
-          </div>)}
-      </div>}
-    </Card>
-
     <Card className="p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background:`${TK.bad}12`}}>⚠️</div><div><p className="text-xs font-semibold" style={{color:TK.text}}>Danger Zone</p><p className="text-[10px]" style={{color:TK.textM}}>Delete account and all data</p></div></div>
@@ -1735,6 +1730,7 @@ export default function App(){
   const [customers,setCustomers]=useState<CustItem[]>([]);
   const [invoices,setInvoices]=useState<any[]>([]);
   const [loading,setLoading]=useState(false);
+  const [showLogin,setShowLogin]=useState(false);
 
   useEffect(()=>{
     api.auth.me().then(data=>{
@@ -1769,11 +1765,12 @@ export default function App(){
 
   const handleLogout=async()=>{
     await api.auth.logout().catch(()=>{});
-    setUser(null); setReg(null); setBooks([]); setCustomers([]); setInvoices([]);
+    setUser(null); setReg(null); setBooks([]); setCustomers([]); setInvoices([]); setShowLogin(false);
   };
 
   if(!authChecked) return <div className="min-h-screen flex items-center justify-center" style={{background:TK.bg}}><Spinner/></div>;
-  if(!user) return <Login onLogin={handleLogin}/>;
+  if(!user && !showLogin) return <FelosakWebsite onGoToLogin={()=>setShowLogin(true)}/>;
+  if(!user) return <Login onLogin={handleLogin} onBack={()=>setShowLogin(false)}/>;
   if(!reg) return <RegSel onSel={async(r)=>{setReg(r);try{await api.auth.updateProfile({region:r});}catch(e){}}}/>;
   const R=RG[reg];
 
@@ -1787,7 +1784,7 @@ export default function App(){
       case "inv":return <InvPg R={R} cu={customers} invoices={invoices} reload={loadData} user={user}/>;
       case "ai":return <AiPg R={R} books={books} cu={customers}/>;
       case "comp":return <CompPg R={R} books={books}/>;
-      case "set":return <SetPg R={R} user={user} setReg={setReg} onLogout={handleLogout} onUserUpdate={setUser}/>;
+      case "set":return <SetPg R={R} user={user} onLogout={handleLogout} onUserUpdate={setUser}/>;
       default:return null;
     }
   };
