@@ -1,7 +1,8 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
-import { usersTable, cashBooksTable, transactionsTable, bookMembersTable, customersTable } from "@workspace/db/schema";
+import * as schemaModule from "@workspace/db/schema";
+const { usersTable, cashBooksTable, transactionsTable, bookMembersTable, customersTable } = schemaModule;
 import { eq } from "drizzle-orm";
 
 const router = Router();

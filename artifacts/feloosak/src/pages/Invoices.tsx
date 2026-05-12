@@ -21,66 +21,67 @@ export function Invoices() {
   };
 
   return (
-    <div className="pb-24">
-      <header className="bg-card pt-12 pb-4 sticky top-0 z-20 border-b border-border px-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-foreground">
+    <div className="pb-20 md:pb-24 min-h-screen bg-background">
+      {/* Header - Mobile Responsive */}
+      <header className="bg-card pt-8 md:pt-12 pb-3 md:pb-4 sticky top-0 z-20 border-b border-border px-4 flex justify-between items-center">
+        <h1 className="text-lg md:text-xl font-bold text-foreground">
           {isAr ? 'الفواتير' : 'Invoices'}
         </h1>
         <div className={cn(
-          "px-3 py-1.5 rounded-full text-[10px] font-bold border",
+          "px-2 md:px-3 py-1 md:py-1.5 rounded-full text-[8px] md:text-[10px] font-bold border whitespace-nowrap",
           R.eMandatory ? "bg-success-bg text-success border-success/20" : "bg-warning-bg text-warning border-warning/20"
         )}>
           {R.authority} {R.eMandatory ? "Active" : "Pilot"}
         </div>
       </header>
 
-      <main className="px-4 py-6 space-y-4">
-        {/* Compliance Banner */}
+      <main className="px-3 md:px-4 py-4 md:py-6 space-y-3 md:space-y-4">
+        {/* Compliance Banner - Mobile Responsive */}
         <div className={cn(
-          "p-4 rounded-2xl border flex items-start gap-3",
+          "p-3 md:p-4 rounded-xl md:rounded-2xl border flex items-start gap-2 md:gap-3",
           R.id === 'EG' ? "bg-danger-bg border-danger/15" : "bg-info-bg border-info/15"
         )}>
-          <ShieldCheck className={cn("w-5 h-5 shrink-0 mt-0.5", R.id === 'EG' ? "text-danger" : "text-info")} />
-          <p className={cn("text-[11px] font-semibold leading-relaxed", R.id === 'EG' ? "text-danger" : "text-info")}>
+          <ShieldCheck className={cn("w-4 h-4 md:w-5 md:h-5 shrink-0 mt-0.5", R.id === 'EG' ? "text-danger" : "text-info")} />
+          <p className={cn("text-[9px] md:text-[11px] font-semibold leading-relaxed", R.id === 'EG' ? "text-danger" : "text-info")}>
             {R.id === 'EG'
               ? 'ETA: Real-time XML/JSON • UUID+QR • GS1 codes • Digital signature • 7yr archival'
               : 'FTA: Tax invoices with TRN • Peppol CTC pilot July 2026 • Mandatory 2027 • 5yr archival'}
           </p>
         </div>
 
-        {/* Stats Row */}
-        <div className="bg-card p-4 rounded-2xl border border-border shadow-sm flex divide-x divide-border">
-          <div className="flex-1 text-center px-2">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">VAT</p>
-            <p className="text-xl font-black text-accent">{(R.vatRate * 100).toFixed(0)}%</p>
+        {/* Stats Row - Mobile Responsive 3 columns */}
+        <div className="bg-card p-3 md:p-4 rounded-xl md:rounded-2xl border border-border shadow-sm flex divide-x divide-border">
+          <div className="flex-1 text-center px-1 md:px-2">
+            <p className="text-[8px] md:text-[10px] font-bold text-muted-foreground uppercase mb-0.5 md:mb-1">VAT</p>
+            <p className="text-base md:text-xl font-black text-accent">{(R.vatRate * 100).toFixed(0)}%</p>
           </div>
-          <div className="flex-1 text-center px-2">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">{isAr ? 'الفواتير' : 'Invoices'}</p>
-            <p className="text-xl font-black text-foreground">{invs.length}</p>
+          <div className="flex-1 text-center px-1 md:px-2">
+            <p className="text-[8px] md:text-[10px] font-bold text-muted-foreground uppercase mb-0.5 md:mb-1">{isAr ? 'الفواتير' : 'Invoices'}</p>
+            <p className="text-base md:text-xl font-black text-foreground">{invs.length}</p>
           </div>
-          <div className="flex-1 text-center px-2">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">{isAr ? 'أرشفة' : 'Archival'}</p>
-            <p className="text-xl font-black text-info">{R.archival}yr</p>
+          <div className="flex-1 text-center px-1 md:px-2">
+            <p className="text-[8px] md:text-[10px] font-bold text-muted-foreground uppercase mb-0.5 md:mb-1">{isAr ? 'أرشفة' : 'Archival'}</p>
+            <p className="text-base md:text-xl font-black text-info">{R.archival}yr</p>
           </div>
         </div>
 
-        {/* List */}
-        <div className="space-y-3 mt-6">
+        {/* Invoice List - Mobile Responsive */}
+        <div className="space-y-2 md:space-y-3 mt-4 md:mt-6">
           {invs.map((inv, i) => (
-            <div key={i} className="bg-card p-4 rounded-2xl border border-border shadow-sm flex items-center gap-4">
-              <div className="w-12 h-12 bg-accent-bg text-accent rounded-xl flex items-center justify-center shrink-0">
-                <Receipt className="w-6 h-6" />
+            <div key={i} className="bg-card p-3 md:p-4 rounded-xl md:rounded-2xl border border-border shadow-sm flex items-center gap-3 md:gap-4">
+              <div className="w-9 h-9 md:w-12 md:h-12 bg-accent-bg text-accent rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                <Receipt className="w-5 h-5 md:w-6 md:h-6" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-foreground truncate">{inv.num}</p>
-                <p className="text-[11px] font-medium text-muted-foreground">{inv.cust}</p>
+                <p className="text-xs md:text-sm font-bold text-foreground truncate">{inv.num}</p>
+                <p className="text-[10px] md:text-[11px] font-medium text-muted-foreground truncate">{inv.cust}</p>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-foreground">
+              <div className="text-right shrink-0">
+                <p className="text-xs md:text-sm font-bold text-foreground">
                   {formatCurrency(inv.total, R.currency).replace('.00', '')}
                 </p>
                 <div className={cn(
-                  "inline-block px-2 py-0.5 rounded-md text-[9px] font-bold uppercase mt-1",
+                  "inline-block px-1.5 md:px-2 py-0.5 rounded-md text-[8px] md:text-[9px] font-bold uppercase mt-0.5 md:mt-1",
                   stColors[inv.st].bg, stColors[inv.st].text
                 )}>
                   {inv.st}
@@ -91,9 +92,10 @@ export function Invoices() {
         </div>
       </main>
 
-      <button className="fixed bottom-20 right-4 bg-accent text-[#1A1510] h-14 px-6 rounded-full shadow-lg shadow-accent/30 flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-transform z-30">
-        <FileText strokeWidth={2.5} className="w-5 h-5" />
-        <span className="font-bold text-sm">{isAr ? 'فاتورة جديدة' : 'New Invoice'}</span>
+      {/* FAB Button - Mobile Responsive */}
+      <button className="fixed bottom-20 md:bottom-24 right-4 bg-accent text-[#1A1510] h-12 md:h-14 px-4 md:px-6 rounded-full shadow-lg shadow-accent/30 flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-transform z-30 touch-manipulation">
+        <FileText strokeWidth={2.5} className="w-4 h-4 md:w-5 md:h-5" />
+        <span className="font-bold text-xs md:text-sm">{isAr ? 'فاتورة جديدة' : 'New Invoice'}</span>
       </button>
     </div>
   );

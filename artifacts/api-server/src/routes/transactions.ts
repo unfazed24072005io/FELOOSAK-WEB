@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { transactionsTable, cashBooksTable } from "@workspace/db/schema";
+import * as schemaModule from "@workspace/db/schema";
+const { transactionsTable, cashBooksTable } = schemaModule;
 import { eq, and } from "drizzle-orm";
 
 const router = Router();

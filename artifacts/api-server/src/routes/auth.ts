@@ -1,7 +1,9 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db/schema";
+import * as dbModule from "@workspace/db";
+const { db } = dbModule;
+import * as schemaModule from "@workspace/db/schema";
+const { usersTable } = schemaModule;
 import { eq } from "drizzle-orm";
 
 const router = Router();
@@ -31,7 +33,8 @@ router.post("/register", async (req, res) => {
     const { password: _, ...safe } = user;
     res.json({ user: safe });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    console.error("REGISTER ERROR:", e);
+    res.status(500).json({ error: e.message, stack: e.stack });
   }
 });
 

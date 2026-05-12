@@ -18,9 +18,11 @@
     "drizzle-orm": "catalog:",
     "express": "^5",
     "express-session": "^1.19.0",
-    "multer": "^2.1.1"
+    "multer": "^2.1.1",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/connect-pg-simple": "^7.0.3",
     "@types/cookie-parser": "^1.4.10",
@@ -29,6 +31,7 @@
     "@types/express-session": "^1.18.2",
     "@types/multer": "^2.1.0",
     "@types/node": "catalog:",
+    "dotenv": "^17.4.1",
     "esbuild": "^0.27.3",
     "tsx": "catalog:"
   }

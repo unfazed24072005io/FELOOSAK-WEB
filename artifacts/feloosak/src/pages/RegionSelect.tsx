@@ -20,42 +20,55 @@ export function RegionSelect() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center px-6">
+    <div className="min-h-screen bg-background flex flex-col justify-center px-4 md:px-6 py-8 md:py-0">
       <div className="max-w-md mx-auto w-full">
-        <div className="text-center mb-10">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Select Your Region</h1>
-          <p className="text-sm font-medium text-muted-foreground mt-2 px-4">
+        {/* Header Section - Mobile Responsive */}
+        <div className="text-center mb-6 md:mb-10">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground tracking-tight">
+            Select Your Region
+          </h1>
+          <p className="text-xs md:text-sm font-medium text-muted-foreground mt-2 px-3 md:px-4">
             Each region follows different tax & compliance laws.
           </p>
         </div>
 
+        {/* Region Buttons - Mobile Responsive */}
         <motion.div 
           variants={container}
           initial="hidden"
           animate="show"
-          className="space-y-4"
+          className="space-y-3 md:space-y-4"
         >
           {[egyptData, uaeData].map((r) => (
             <motion.button
               key={r.id}
               variants={item}
               onClick={() => setRegion(r.region)}
-              className="w-full group text-left flex items-center p-5 bg-card rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-accent/30 transition-all duration-300"
+              className="w-full group text-left flex items-center p-3 md:p-5 bg-card rounded-xl md:rounded-2xl border border-border shadow-sm hover:shadow-md hover:border-accent/30 transition-all duration-300 active:scale-98 touch-manipulation"
             >
-              <div className="text-4xl mr-4 group-hover:scale-110 transition-transform origin-center">
+              {/* Flag Icon - Responsive size */}
+              <div className="text-3xl md:text-4xl mr-2 md:mr-4 group-hover:scale-110 transition-transform origin-center shrink-0">
                 {r.flag}
               </div>
-              <div className="flex-1">
-                <div className="flex items-baseline space-x-2">
-                  <h3 className="text-lg font-bold text-foreground">{r.name}</h3>
-                  <span className="text-sm font-bold text-accent font-arabic">{r.nameAr}</span>
+              
+              {/* Region Info - Responsive text */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline flex-wrap gap-1 md:gap-2">
+                  <h3 className="text-base md:text-lg font-bold text-foreground truncate">
+                    {r.name}
+                  </h3>
+                  <span className="text-xs md:text-sm font-bold text-accent font-arabic truncate">
+                    {r.nameAr}
+                  </span>
                 </div>
-                <p className="text-xs font-medium text-muted-foreground mt-1">
+                <p className="text-[10px] md:text-xs font-medium text-muted-foreground mt-0.5 md:mt-1 truncate">
                   {r.vatLabel} • {r.authority} • {r.currency}
                 </p>
               </div>
-              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center group-hover:bg-accent group-hover:text-[#1A1510] transition-colors text-muted-foreground">
-                <ChevronRight className="w-5 h-5" />
+              
+              {/* Arrow Icon - Responsive size */}
+              <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-muted flex items-center justify-center group-hover:bg-accent group-hover:text-[#1A1510] transition-colors text-muted-foreground shrink-0 ml-2 md:ml-0">
+                <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
               </div>
             </motion.button>
           ))}
